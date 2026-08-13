@@ -1,0 +1,26 @@
+{
+  "name": "personal-blog",
+  "version": "1.0.0",
+  "description": "个人技术博客 - 基于 Markdown 的可拓展静态站点",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js --watch",
+    "serve": "node build.js && npx --yes serve dist -p 4321",
+    "new": "node scripts/new-post.js"
+  },
+  "keywords": [
+    "blog",
+    "static-site",
+    "markdown",
+    "technical"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "gray-matter": "^4.0.3",
+    "highlight.js": "^11.9.0",
+    "marked": "^12.0.2",
+    "marked-highlight": "^2.1.1"
+  }
+}
