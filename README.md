@@ -2,7 +2,7 @@
 
 个人技术博客，基于 Markdown 的可拓展静态站点。
 
-已部署到[cloudflare pages](https://personal-blog.manjin-03.workers.dev)
+已部署到[cloudflare pages](https://tech-manjin.pages.dev/)
 
 ## 特性
 
