@@ -41,6 +41,7 @@ const SITE = {
     { label: '首页', href: '/' },
     { label: '归档', href: '/archive.html' },
     { label: '标签', href: '/tags.html' },
+    { label: '搜索', href: '/search.html' },
     { label: '关于', href: '/about.html' }
   ],
   social: [
@@ -109,6 +110,18 @@ function formatDate(d) {
   return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
+/** 把 frontmatter 的 date（可能是 Date 对象或字符串）标准化为 YYYY-MM-DD */
+function toISODate(d) {
+  if (d instanceof Date) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  const s = String(d);
+  return s.length >= 10 ? s.slice(0, 10) : s;
+}
+
 /** 收集文章 */
 function collectPosts() {
   if (!existsSync(POSTS_DIR)) return [];
@@ -117,7 +130,7 @@ function collectPosts() {
     const full = join(POSTS_DIR, file);
     const { data, content } = readMd(full);
     const slug = basename(file, '.md');
-    const date = data.date || new Date().toISOString().slice(0, 10);
+    const date = toISODate(data.date || new Date());
     const title = data.title || slug;
     const tags = Array.isArray(data.tags) ? data.tags : [];
     const category = data.category || '未分类';
@@ -410,6 +423,103 @@ function build404() {
   writeFileSync(join(OUT, '404.html'), renderLayout({ title: '404', description: '页面未找到', content }));
 }
 
+/**
+ * 构建搜索索引：供客户端 /search.html 异步加载并筛选
+ * 字段精简，仅保留筛选与展示所需
+ */
+function buildSearchIndex(posts) {
+  const index = posts.map(p => ({
+    slug: p.slug,
+    title: p.title,
+    date: p.date,                // YYYY-MM-DD
+    year: String(p.date).slice(0, 4),
+    month: String(p.date).slice(0, 7),  // YYYY-MM
+    category: p.category,
+    tags: p.tags,
+    summary: p.summary,
+    url: `/posts/${p.slug}.html`
+  }));
+  writeFileSync(join(OUT, 'search.json'), JSON.stringify(index, null, 2));
+}
+
+/**
+ * 构建搜索页：
+ * - 关键词输入（匹配标题 + 摘要 + 标签）
+ * - 日期维度（年份下拉 + 月份下拉，二者联动）
+ * - 标签多选（标签云 checkbox）
+ * 筛选逻辑由 /assets/js/search.js 在客户端完成
+ */
+function buildSearchPage(posts) {
+  // 收集年份/标签；月份按年份分组，挂到 option 的 data-months 上供 JS 联动
+  const yearMonths = new Map();  // year -> Set(YYYY-MM)
+  for (const p of posts) {
+    const y = String(p.date).slice(0, 4);
+    const m = String(p.date).slice(0, 7);
+    if (!yearMonths.has(y)) yearMonths.set(y, new Set());
+    yearMonths.get(y).add(m);
+  }
+  const years = [...yearMonths.keys()].sort((a, b) => b.localeCompare(a));
+  const tagMap = new Map();
+  for (const p of posts) {
+    for (const t of p.tags) tagMap.set(t, (tagMap.get(t) || 0) + 1);
+  }
+  const tags = [...tagMap.keys()].sort((a, b) => tagMap.get(b) - tagMap.get(a));
+
+  const content = `
+    <section class="search-page">
+      <h1 class="section-title">搜索</h1>
+
+      <form class="search-form" id="search-form" autocomplete="off">
+        <div class="search-field search-field-keyword">
+          <label for="q">关键词</label>
+          <input type="search" id="q" name="q" placeholder="搜索标题、摘要或标签…" class="search-input">
+        </div>
+
+        <div class="search-field search-field-date">
+          <label for="year">年份</label>
+          <select id="year" name="year" class="search-select">
+            <option value="">全部</option>
+            ${years.map(y => `<option value="${y}" data-months="${[...yearMonths.get(y)].sort((a, b) => b.localeCompare(a)).join(',')}">${y}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="search-field search-field-date">
+          <label for="month">月份</label>
+          <select id="month" name="month" class="search-select" disabled>
+            <option value="">全部</option>
+          </select>
+        </div>
+
+        <div class="search-field search-field-actions">
+          <button type="submit" class="search-btn">搜索</button>
+          <button type="reset" class="search-btn search-btn-ghost" id="search-reset">重置</button>
+        </div>
+      </form>
+
+      <fieldset class="search-tags" id="search-tags">
+        <legend>标签筛选（多选）</legend>
+        <div class="search-tags-list">
+          ${tags.map(t => `
+            <label class="search-tag">
+              <input type="checkbox" name="tag" value="${t}">
+              <span>#${t} <em>${tagMap.get(t)}</em></span>
+            </label>`).join('')}
+        </div>
+      </fieldset>
+
+      <div class="search-summary" id="search-summary" aria-live="polite"></div>
+      <div class="search-results" id="search-results"></div>
+    </section>`;
+
+  const html = renderLayout({
+    title: '搜索',
+    description: '按关键词、日期或标签搜索文章',
+    content,
+    extraBody: '<script src="/assets/js/search.js"></script>'
+  });
+  writeFileSync(join(OUT, 'search.html'), html);
+}
+
 async function build() {
   const start = Date.now();
   console.log('▶ 开始构建...');
@@ -422,6 +532,8 @@ async function build() {
   for (const post of posts) await buildPostPage(post);
   await buildArchive(posts);
   await buildTags(posts);
+  buildSearchIndex(posts);
+  buildSearchPage(posts);
   await buildPages(pages);
   buildRss(posts);
   build404();
