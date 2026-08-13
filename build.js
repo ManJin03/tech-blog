@@ -264,6 +264,7 @@ function renderLayout(opts) {
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="alternate" type="application/rss+xml" title="${SITE.title}" href="/feed.xml">
   <link rel="stylesheet" href="/assets/css/style.css">
+  <script defer src="https://events.vercount.one/js"></script>
   <script>
     (function(){try{var t=localStorage.getItem('byteforge-theme');if(t){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();
   </script>
@@ -273,6 +274,12 @@ function renderLayout(opts) {
   <header class="site-header">
     <div class="container header-inner">
       <a href="/" class="site-title">${SITE.title}</a>
+      <aside class="visit-badge" id="visit-badge" aria-label="本站访问统计">
+        <span class="visit-badge-icon">👥</span>
+        <span class="visit-badge-label">本站访客</span>
+        <span class="visit-badge-value" id="vercount_value_site_uv">…</span>
+        <span class="visit-badge-unit">人</span>
+      </aside>
       <nav class="site-nav">${navHtml}</nav>
       <button class="theme-toggle" id="theme-toggle" aria-label="切换主题" title="切换主题">
         <span class="theme-icon-light">🌙</span>
