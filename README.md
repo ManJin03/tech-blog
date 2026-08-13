@@ -2,6 +2,8 @@
 
 个人技术博客，基于 Markdown 的可拓展静态站点。
 
+已部署到[cloudflare pages](https://personal-blog.manjin-03.workers.dev)
+
 ## 特性
 
 - **Markdown 写作**：文章用 frontmatter + Markdown，专注内容

@@ -2,9 +2,10 @@
  * 搜索页客户端逻辑
  * - 异步加载 /search.json 索引
  * - 年份↔月份下拉联动
- * - 关键词（标题+摘要+标签模糊匹配）× 日期 × 标签多选 三维度 AND 组合
+ * - 专栏下拉筛选
+ * - 关键词（标题+摘要+标签+分类+专栏名模糊匹配）× 专栏 × 日期 × 标签多选 四维度 AND 组合
  * - 实时渲染结果，关键词高亮
- * - 支持 URL 参数：?q=xxx&year=2026&month=2026-07&tag=Ascend
+ * - 支持 URL 参数：?q=xxx&column=xxx&year=2026&month=2026-07&tag=Ascend
  */
 (function () {
   "use strict";
@@ -15,6 +16,7 @@
 
   var elForm = document.getElementById("search-form");
   var elQ = document.getElementById("q");
+  var elColumn = document.getElementById("column");
   var elYear = document.getElementById("year");
   var elMonth = document.getElementById("month");
   var elTags = document.getElementById("search-tags");
@@ -69,6 +71,7 @@
 
     return {
       q: (elQ.value || "").trim().toLowerCase(),
+      column: elColumn ? elColumn.value : "",
       year: elYear.value,
       month: elMonth.value,
       tags: tags
@@ -78,6 +81,10 @@
   // ---------- 执行筛选 ----------
   function filter(f) {
     return index.filter(function (p) {
+      // 专栏
+      if (f.column) {
+        if (!p.series || p.series.slug !== f.column) return false;
+      }
       // 日期：年
       if (f.year && p.year !== f.year) return false;
       // 日期：月
@@ -88,10 +95,11 @@
           if (p.tags.indexOf(f.tags[i]) === -1) return false;
         }
       }
-      // 关键词：标题 + 摘要 + 标签 + 分类
+      // 关键词：标题 + 摘要 + 标签 + 分类 + 专栏名
       if (f.q) {
+        var seriesName = p.series ? p.series.name : "";
         var haystack = (
-          p.title + " " + p.summary + " " + p.tags.join(" ") + " " + p.category
+          p.title + " " + p.summary + " " + p.tags.join(" ") + " " + p.category + " " + seriesName
         ).toLowerCase();
         if (haystack.indexOf(f.q) === -1) return false;
       }
@@ -121,6 +129,10 @@
     return date.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
   }
 
+  function slugify(s) {
+    return s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
+  }
+
   // ---------- 渲染结果 ----------
   function render(results, f) {
     elSummary.textContent =
@@ -140,6 +152,9 @@
             return '<a href="/tags.html#' + slugify(t) + '" class="tag">#' + escapeHtml(t) + "</a>";
           })
           .join("");
+        var seriesHtml = p.series
+          ? '<a class="post-series" href="/columns/' + p.series.slug + '.html">📚 ' + highlight(p.series.name, f.q) + "</a>"
+          : "";
 
         return (
           '<article class="post-card">' +
@@ -147,6 +162,7 @@
             '<div class="post-meta">' +
               '<time datetime="' + p.date + '">' + formatDate(p.date) + "</time>" +
               '<span class="post-category">' + escapeHtml(p.category) + "</span>" +
+              seriesHtml +
             "</div>" +
             '<p class="post-summary">' + highlight(p.summary, f.q) + "</p>" +
             (tagsHtml ? '<div class="post-tags">' + tagsHtml + "</div>" : "") +
@@ -156,10 +172,6 @@
       .join("\n");
 
     elResults.innerHTML = '<div class="post-list">' + html + "</div>";
-  }
-
-  function slugify(s) {
-    return s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
   }
 
   // ---------- 主流程 ----------
@@ -173,6 +185,7 @@
   function syncUrl(f) {
     var params = new URLSearchParams();
     if (f.q) params.set("q", f.q);
+    if (f.column) params.set("column", f.column);
     if (f.year) params.set("year", f.year);
     if (f.month) params.set("month", f.month);
     if (f.tags.length) params.set("tag", f.tags.join(","));
@@ -185,6 +198,7 @@
   function applyUrlParams() {
     var params = new URLSearchParams(location.search);
     if (params.get("q")) elQ.value = params.get("q");
+    if (elColumn && params.get("column")) elColumn.value = params.get("column");
     if (params.get("year")) {
       elYear.value = params.get("year");
       syncMonthOptions();
@@ -207,6 +221,7 @@
     run();
   });
   elMonth.addEventListener("change", run);
+  if (elColumn) elColumn.addEventListener("change", run);
 
   // 输入框：防抖实时搜索
   var debounceTimer;

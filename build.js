@@ -1,13 +1,19 @@
 /**
  * 静态站点生成器
  * - 读取 src/posts/*.md (带 frontmatter) 生成文章页
- * - 生成首页、归档、标签页、RSS、关于页
+ * - 生成首页、归档、标签页、专栏页、RSS、关于页
  * - 拷贝静态资源到 dist/
  *
  * 拓展点：
  *   1. 在 src/posts/ 下新增 .md 即可发布新文章
  *   2. 在 src/pages/ 下新增 .md 可生成自定义页面
  *   3. 在 templates/ 中修改模板改变渲染
+ *
+ * 专栏 frontmatter 支持两种写法：
+ *   series: 现代C++深度指南                # 按日期自动排序
+ *   series:                                # 自定义排序号
+ *     name: 现代C++深度指南
+ *     order: 2
  */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, copyFileSync, existsSync, statSync, watch } from 'node:fs';
 import { join, extname, basename, dirname, relative } from 'node:path';
@@ -39,6 +45,7 @@ const SITE = {
   lang: 'zh-CN',
   nav: [
     { label: '首页', href: '/' },
+    { label: '专栏', href: '/columns.html' },
     { label: '归档', href: '/archive.html' },
     { label: '标签', href: '/tags.html' },
     { label: '搜索', href: '/search.html' },
@@ -122,6 +129,27 @@ function toISODate(d) {
   return s.length >= 10 ? s.slice(0, 10) : s;
 }
 
+/**
+ * 解析 frontmatter 中的 series 字段
+ * 支持：
+ *   1) series: 字符串专栏名   => 自动按 date 排序
+ *   2) series: { name: 'xxx', order: 2 }  => order 数字越小越靠前，缺省按 date
+ * 返回 { name, slug, order } 或 null
+ */
+function parseSeries(raw) {
+  if (!raw) return null;
+  let name, order = null;
+  if (typeof raw === 'string') {
+    name = raw.trim();
+  } else if (typeof raw === 'object') {
+    name = raw.name ? String(raw.name).trim() : '';
+    const o = Number(raw.order);
+    order = Number.isFinite(o) ? o : null;
+  }
+  if (!name) return null;
+  return { name, slug: slugify(name), order };
+}
+
 /** 收集文章 */
 function collectPosts() {
   if (!existsSync(POSTS_DIR)) return [];
@@ -137,6 +165,7 @@ function collectPosts() {
     const summary = data.summary || content.replace(/[#`>*\-\[\]\(\)]/g, '').slice(0, 120) + '…';
     const toc = buildToc(content);
     const html = renderMarkdown(content);
+    const series = parseSeries(data.series);
     return {
       slug,
       title,
@@ -147,12 +176,57 @@ function collectPosts() {
       draft: !!data.draft,
       html,
       toc,
-      content
+      content,
+      series
     };
   });
   return posts
     .filter(p => !p.draft)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+/**
+ * 把文章按专栏分组，并对每组内排序：
+ *   1. order 不为 null 的按 order 升序靠前
+ *   2. order 为 null 的按 date 升序（专栏内一般按时间先后阅读）
+ * 返回 [{ slug, name, posts, count, startDate, endDate, summary }, ...]
+ * 并把每篇文章上追加 seriesIndex（1-based）、prev、next
+ */
+function collectSeries(posts) {
+  const map = new Map();
+  for (const p of posts) {
+    if (!p.series) continue;
+    if (!map.has(p.series.slug)) {
+      map.set(p.series.slug, {
+        slug: p.series.slug,
+        name: p.series.name,
+        posts: []
+      });
+    }
+    map.get(p.series.slug).posts.push(p);
+  }
+  // 组内排序 + 回填 seriesIndex / prev / next
+  for (const col of map.values()) {
+    col.posts.sort((a, b) => {
+      const ao = a.series.order, bo = b.series.order;
+      if (ao !== null && bo !== null) return ao - bo;
+      if (ao !== null) return -1;
+      if (bo !== null) return 1;
+      return new Date(a.date) - new Date(b.date);
+    });
+    col.posts.forEach((p, i) => {
+      p.seriesIndex = i + 1;
+      p.seriesPrev = i > 0 ? col.posts[i - 1] : null;
+      p.seriesNext = i < col.posts.length - 1 ? col.posts[i + 1] : null;
+    });
+    col.count = col.posts.length;
+    col.startDate = col.posts[0].date;
+    col.endDate = col.posts[col.posts.length - 1].date;
+    // 专栏简介：取专栏中第一篇的 summary 作为默认
+    col.summary = col.posts[0].summary;
+  }
+  // 按最近更新时间（专栏内最后一篇文章日期）倒序展示
+  return [...map.values()].sort((a, b) => new Date(b.endDate) - new Date(a.endDate));
 }
 
 /** 收集自定义页面 */
@@ -221,13 +295,14 @@ ${content}
 </html>`;
 }
 
-async function buildHome(posts) {
+async function buildHome(posts, series) {
   const list = posts.slice(0, 10).map(p => `
     <article class="post-card">
       <h2 class="post-card-title"><a href="/posts/${p.slug}.html">${p.title}</a></h2>
       <div class="post-meta">
         <time datetime="${p.date}">${formatDate(p.date)}</time>
         <span class="post-category">${p.category}</span>
+        ${p.series ? `<a class="post-series" href="/columns/${p.series.slug}.html">📚 ${p.series.name}</a>` : ''}
       </div>
       <p class="post-summary">${p.summary}</p>
       <div class="post-tags">
@@ -235,11 +310,34 @@ async function buildHome(posts) {
       </div>
     </article>`).join('\n');
 
+  // 专栏速览卡片
+  const seriesHtml = series.length ? `
+    <section class="series-preview">
+      <h2 class="section-title"><a href="/columns.html" class="section-title-link">专栏</a></h2>
+      <div class="series-grid">
+        ${series.slice(0, 6).map(c => `
+          <a href="/columns/${c.slug}.html" class="series-card">
+            <div class="series-card-header">
+              <h3 class="series-card-title">${c.name}</h3>
+              <span class="series-card-count">${c.count} 篇</span>
+            </div>
+            <p class="series-card-summary">${c.summary}</p>
+            <div class="series-card-meta">
+              <time>${formatDate(c.startDate)}</time>
+              <span>→</span>
+              <time>${formatDate(c.endDate)}</time>
+            </div>
+          </a>
+        `).join('')}
+      </div>
+    </section>` : '';
+
   const content = `
     <section class="hero">
       <h1 class="hero-title">${SITE.title}</h1>
       <p class="hero-desc">${SITE.description}</p>
     </section>
+    ${seriesHtml}
     <section class="post-list">
       <h2 class="section-title">最新文章</h2>
       ${list}
@@ -261,6 +359,43 @@ async function buildPostPage(post) {
         post.toc.map(t => `<li class="toc-level-${t.level}"><a href="#${t.id}">${t.text}</a></li>`).join('')
       }</ul></details>`
     : '';
+
+  // 专栏信息块：专栏名 + 目录 + 上/下篇
+  let seriesBoxHtml = '';
+  if (post.series && post.seriesIndex) {
+    // 需要在 collectSeries 时回填所属专栏的 posts 列表；这里通过 seriesIndex 和 prev/next 呈现
+    const total = (post.seriesPrev ? post.seriesIndex - 1 : 0) + 1 +
+                  (post.seriesNext ? 999 : 0);  // 占位，下面用总数覆盖
+    // 其实 prev/next 已给出，专栏标题块显示 “第 X 篇 / 共 N 篇”：
+    // N = seriesIndex + 后面还有几篇（由于 next 是链表，我们用 post.seriesCount 更方便）
+    // 为了简化，我们把 seriesCount 在 collectSeries 里塞进每篇文章：
+    const seriesCount = post.seriesCount || (() => {
+      let n = post.seriesIndex; let cur = post;
+      while (cur.seriesNext) { cur = cur.seriesNext; n++; }
+      return n;
+    })();
+
+    const prevHtml = post.seriesPrev
+      ? `<a class="series-nav-prev" href="/posts/${post.seriesPrev.slug}.html">← ${post.seriesPrev.title}</a>`
+      : `<span class="series-nav-disabled">← 已是第一篇</span>`;
+    const nextHtml = post.seriesNext
+      ? `<a class="series-nav-next" href="/posts/${post.seriesNext.slug}.html">${post.seriesNext.title} →</a>`
+      : `<span class="series-nav-disabled">已是最后一篇 →</span>`;
+
+    seriesBoxHtml = `
+    <section class="series-box">
+      <div class="series-box-header">
+        <span class="series-badge">专栏</span>
+        <a class="series-box-title" href="/columns/${post.series.slug}.html">${post.series.name}</a>
+        <span class="series-box-index">第 ${post.seriesIndex} 篇 / 共 ${seriesCount} 篇</span>
+      </div>
+      <nav class="series-nav">
+        ${prevHtml}
+        ${nextHtml}
+      </nav>
+    </section>`;
+  }
+
   const content = `
     <article class="post">
       <header class="post-header">
@@ -268,12 +403,14 @@ async function buildPostPage(post) {
         <div class="post-meta">
           <time datetime="${post.date}">${formatDate(post.date)}</time>
           <span class="post-category">${post.category}</span>
+          ${post.series ? `<a class="post-series" href="/columns/${post.series.slug}.html">📚 ${post.series.name}</a>` : ''}
           <span class="post-reading">${estimateReadingTime(post.content)} 分钟阅读</span>
         </div>
         <div class="post-tags">
           ${post.tags.map(t => `<a href="/tags.html#${slugify(t)}" class="tag">#${t}</a>`).join('')}
         </div>
       </header>
+      ${seriesBoxHtml}
       ${tocHtml}
       <div class="post-content">
         ${post.html}
@@ -313,6 +450,7 @@ async function buildArchive(posts) {
               <li>
                 <time datetime="${p.date}">${formatDate(p.date)}</time>
                 <a href="/posts/${p.slug}.html">${p.title}</a>
+                ${p.series ? `<a class="post-series post-series-inline" href="/columns/${p.series.slug}.html">📚 ${p.series.name}</a>` : ''}
               </li>`).join('')}
           </ul>
         </div>`).join('')}
@@ -343,6 +481,7 @@ async function buildTags(posts) {
               <li>
                 <time datetime="${p.date}">${formatDate(p.date)}</time>
                 <a href="/posts/${p.slug}.html">${p.title}</a>
+                ${p.series ? `<a class="post-series post-series-inline" href="/columns/${p.series.slug}.html">📚 ${p.series.name}</a>` : ''}
               </li>`).join('')}
           </ul>
         </section>`).join('')}
@@ -355,6 +494,107 @@ function tagSizeClass(n) {
   if (n >= 3) return 'lg';
   if (n >= 2) return 'md';
   return 'sm';
+}
+
+/* ============================================
+   专栏页
+   ============================================ */
+
+/** 专栏列表页 columns.html */
+async function buildColumnsList(series) {
+  let content;
+  if (!series.length) {
+    content = `
+    <section class="columns-page">
+      <h1 class="section-title">专栏</h1>
+      <p class="search-empty">暂无专栏，在文章 frontmatter 中添加 <code>series: 专栏名</code> 即可创建。</p>
+    </section>`;
+  } else {
+    const cards = series.map(c => {
+      const list = c.posts.slice(0, 5).map(p => `
+        <li>
+          <span class="series-idx">#${p.seriesIndex}</span>
+          <time datetime="${p.date}">${formatDate(p.date)}</time>
+          <a href="/posts/${p.slug}.html">${p.title}</a>
+        </li>`).join('');
+      const more = c.posts.length > 5 ? `<li class="series-more"><a href="/columns/${c.slug}.html">查看全部 ${c.posts.length} 篇 →</a></li>` : '';
+      return `
+        <article class="series-card series-card-lg">
+          <div class="series-card-header">
+            <h3 class="series-card-title"><a href="/columns/${c.slug}.html">${c.name}</a></h3>
+            <span class="series-card-count">${c.count} 篇</span>
+          </div>
+          <p class="series-card-summary">${c.summary}</p>
+          <ul class="series-card-list">
+            ${list}
+            ${more}
+          </ul>
+          <div class="series-card-meta">
+            <span>起讫</span>
+            <time>${formatDate(c.startDate)}</time>
+            <span>—</span>
+            <time>${formatDate(c.endDate)}</time>
+          </div>
+        </article>`;
+    }).join('');
+    content = `
+    <section class="columns-page">
+      <h1 class="section-title">专栏</h1>
+      <p class="columns-desc">按主题把多篇文章聚合成专栏，便于系统阅读。</p>
+      <div class="series-grid series-grid-lg">
+        ${cards}
+      </div>
+    </section>`;
+  }
+  writeFileSync(join(OUT, 'columns.html'), renderLayout({
+    title: '专栏',
+    description: '按主题聚合的系列文章',
+    content
+  }));
+}
+
+/** 单个专栏详情页 /columns/<slug>.html */
+async function buildColumnPage(col) {
+  const dir = join(OUT, 'columns');
+  ensureDir(dir);
+
+  const listHtml = col.posts.map((p, i) => `
+    <li class="series-article-item ${p.seriesIndex === col.posts[0].seriesIndex && i === 0 ? '' : ''}">
+      <div class="series-article-meta">
+        <span class="series-idx-badge">第 ${p.seriesIndex} 篇</span>
+        <time datetime="${p.date}">${formatDate(p.date)}</time>
+      </div>
+      <h3 class="series-article-title">
+        <a href="/posts/${p.slug}.html">${p.title}</a>
+      </h3>
+      <p class="series-article-summary">${p.summary}</p>
+      <div class="post-tags">
+        ${p.tags.map(t => `<a href="/tags.html#${slugify(t)}" class="tag">#${t}</a>`).join('')}
+      </div>
+    </li>`).join('');
+
+  const content = `
+    <section class="column-detail">
+      <a href="/columns.html" class="back-home">← 返回专栏列表</a>
+      <header class="column-header">
+        <h1 class="column-title">${col.name}</h1>
+        <div class="column-meta">
+          <span>共 <strong>${col.count}</strong> 篇</span>
+          <span class="dot">·</span>
+          <span>${formatDate(col.startDate)} — ${formatDate(col.endDate)}</span>
+        </div>
+        <p class="column-summary">${col.summary}</p>
+      </header>
+      <ol class="series-article-list">
+        ${listHtml}
+      </ol>
+    </section>`;
+
+  writeFileSync(join(dir, `${col.slug}.html`), renderLayout({
+    title: col.name,
+    description: `${col.name} · 共 ${col.count} 篇文章`,
+    content
+  }));
 }
 
 async function buildPages(pages) {
@@ -436,6 +676,7 @@ function buildSearchIndex(posts) {
     month: String(p.date).slice(0, 7),  // YYYY-MM
     category: p.category,
     tags: p.tags,
+    series: p.series ? { slug: p.series.slug, name: p.series.name } : null,
     summary: p.summary,
     url: `/posts/${p.slug}.html`
   }));
@@ -444,12 +685,13 @@ function buildSearchIndex(posts) {
 
 /**
  * 构建搜索页：
- * - 关键词输入（匹配标题 + 摘要 + 标签）
+ * - 关键词输入（匹配标题 + 摘要 + 标签 + 专栏）
  * - 日期维度（年份下拉 + 月份下拉，二者联动）
+ * - 专栏下拉筛选
  * - 标签多选（标签云 checkbox）
  * 筛选逻辑由 /assets/js/search.js 在客户端完成
  */
-function buildSearchPage(posts) {
+function buildSearchPage(posts, series) {
   // 收集年份/标签；月份按年份分组，挂到 option 的 data-months 上供 JS 联动
   const yearMonths = new Map();  // year -> Set(YYYY-MM)
   for (const p of posts) {
@@ -472,7 +714,15 @@ function buildSearchPage(posts) {
       <form class="search-form" id="search-form" autocomplete="off">
         <div class="search-field search-field-keyword">
           <label for="q">关键词</label>
-          <input type="search" id="q" name="q" placeholder="搜索标题、摘要或标签…" class="search-input">
+          <input type="search" id="q" name="q" placeholder="搜索标题、摘要、标签或专栏…" class="search-input">
+        </div>
+
+        <div class="search-field">
+          <label for="column">专栏</label>
+          <select id="column" name="column" class="search-select">
+            <option value="">全部</option>
+            ${series.map(c => `<option value="${c.slug}">${c.name} (${c.count})</option>`).join('')}
+          </select>
         </div>
 
         <div class="search-field search-field-date">
@@ -513,7 +763,7 @@ function buildSearchPage(posts) {
 
   const html = renderLayout({
     title: '搜索',
-    description: '按关键词、日期或标签搜索文章',
+    description: '按关键词、专栏、日期或标签搜索文章',
     content,
     extraBody: '<script src="/assets/js/search.js"></script>'
   });
@@ -526,20 +776,29 @@ async function build() {
 
   ensureDir(OUT);
   const posts = collectPosts();
+  const series = collectSeries(posts);
+
+  // 回填每篇文章的 seriesCount（供 buildPostPage 使用）
+  for (const col of series) {
+    for (const p of col.posts) p.seriesCount = col.count;
+  }
+
   const pages = collectPages();
 
-  await buildHome(posts);
+  await buildHome(posts, series);
   for (const post of posts) await buildPostPage(post);
+  await buildColumnsList(series);
+  for (const col of series) await buildColumnPage(col);
   await buildArchive(posts);
   await buildTags(posts);
   buildSearchIndex(posts);
-  buildSearchPage(posts);
+  buildSearchPage(posts, series);
   await buildPages(pages);
   buildRss(posts);
   build404();
   copyAssets();
 
-  console.log(`✓ 构建完成：${posts.length} 篇文章 / ${pages.length} 个页面，耗时 ${Date.now() - start}ms`);
+  console.log(`✓ 构建完成：${posts.length} 篇文章 / ${series.length} 个专栏 / ${pages.length} 个页面，耗时 ${Date.now() - start}ms`);
   console.log(`  输出目录：${relative(ROOT, OUT)}`);
 }
 

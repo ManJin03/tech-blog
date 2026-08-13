@@ -3,6 +3,7 @@ title: Ascend C 算子开发入门：从 Host 到 Device 的数据通路
 date: 2026-07-20
 category: 异构计算
 tags: [Ascend, CANN, 算子开发, NPU]
+series: 昇腾AscendC算子开发实战
 summary: 以一次完整的 Add 算子开发为例，梳理 Ascend C 中 Host 侧算子原型、Tiling、Device 侧 Kernel 实现三件套之间的关系。
 draft: false
 ---

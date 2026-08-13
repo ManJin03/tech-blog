@@ -3,6 +3,9 @@ title: 现代 C++ 智能指针：所有权思维的三种姿态
 date: 2026-06-28
 category: 系统编程
 tags: [C++, 智能指针, RAII, 内存管理]
+series:
+  name: 现代C++内存与并发
+  order: 1
 summary: unique_ptr、shared_ptr、weak_ptr 不是三选一的开关，而是表达所有权语义的三种语言。选对指针，等于把资源生命周期的契约写进类型。
 draft: false
 ---

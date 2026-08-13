@@ -3,6 +3,9 @@ title: C++ 内存模型：从原子操作到 happens-before 关系
 date: 2026-07-12
 category: 系统编程
 tags: [C++, 并发, 内存模型, atomic]
+series:
+  name: 现代C++内存与并发
+  order: 2
 summary: 理解 std::atomic 的六种内存序，关键不在于背 API，而在于建立 happens-before 与同步关系的心智模型。
 draft: false
 ---
