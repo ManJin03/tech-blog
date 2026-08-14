@@ -194,6 +194,41 @@ img { max-width: 100%; height: auto; }
   margin: 0 auto;
 }
 
+/* 首页 hero 下方个人介绍 */
+.hero-intro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  max-width: 600px;
+  margin: 24px auto 0;
+  padding: 16px 20px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: left;
+}
+.hero-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  object-fit: cover;
+}
+.hero-intro-body { flex: 1; min-width: 0; }
+.hero-intro-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.hero-intro-bio {
+  font-size: 14px;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+
 .section-title {
   font-size: 22px;
   font-weight: 700;
@@ -592,6 +627,8 @@ img { max-width: 100%; height: auto; }
   .nav-link { font-size: 13px; }
   .hero-title { font-size: 28px; }
   .hero-desc { font-size: 15px; }
+  .hero-intro { flex-direction: column; text-align: center; gap: 12px; }
+  .hero-avatar { width: 48px; height: 48px; }
   .post-title { font-size: 24px; }
   .post-content { font-size: 15px; }
   .footer-inner { flex-direction: column; text-align: center; }
@@ -648,10 +685,40 @@ img { max-width: 100%; height: auto; }
 }
 .visit-badge-unit { color: var(--text-muted); font-size: 11px; }
 
+/* ManJin 按钮：与访客徽章风格一致的链接按钮 */
+.author-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--text-soft);
+  text-decoration: none;
+  transition: border-color var(--transition), box-shadow var(--transition), color var(--transition);
+  margin-left: 4px;
+}
+.author-badge:hover {
+  text-decoration: none;
+  color: var(--primary);
+  border-color: var(--primary);
+  box-shadow: var(--shadow);
+}
+.author-badge-icon { font-size: 14px; line-height: 1; }
+.author-badge-label { font-weight: 600; }
+
 /* ============================================
-   专栏
+   专栏（系列文章）样式
+   涵盖：
+     - .post-series          文章 meta / 归档 / 标签 / 搜索结果中的专栏小标签
+     - .series-preview       首页专栏速览区
+     - .series-card          专栏卡片（首页速览 + 列表页大卡片）
+     - .column-detail        专栏详情页（标题、元信息、文章列表）
+     - .series-box           文章页内的专栏信息块（专栏名 + 序号 + 上下篇导航）
+     - 响应式适配
    ============================================ */
-/* 文章 meta 里的专栏小标签 */
 .post-series {
   font-size: 12px;
   color: var(--accent);
@@ -669,7 +736,8 @@ img { max-width: 100%; height: auto; }
 .section-title-link { color: var(--text); text-decoration: none; }
 .section-title-link:hover { color: var(--primary); text-decoration: none; }
 
-/* 首页专栏速览区 */
+/* 首页专栏速览区：展示最多 6 个专栏卡片 */
+
 .series-preview { margin-bottom: 48px; }
 
 .series-grid {
@@ -740,7 +808,7 @@ img { max-width: 100%; height: auto; }
 }
 .series-card-meta time { font-family: var(--font-mono); }
 
-/* 专栏卡片（大）中的文章预览列表 */
+/* 专栏列表页大卡片中的文章预览列表（前 5 篇） */
 .series-card-list {
   list-style: none;
   margin: 0 0 14px;
@@ -778,14 +846,14 @@ img { max-width: 100%; height: auto; }
   font-weight: 500;
 }
 
-/* 专栏列表页描述 */
+/* 专栏列表页描述文字 */
 .columns-desc {
   color: var(--text-soft);
   margin: -12px 0 24px;
   font-size: 15px;
 }
 
-/* 专栏详情页 */
+/* 专栏详情页：标题、元信息（篇数 + 起讫日期）、简介 */
 .column-detail .back-home { margin-bottom: 24px; display: inline-block; }
 .column-header {
   padding: 32px;
@@ -824,7 +892,7 @@ img { max-width: 100%; height: auto; }
   line-height: 1.7;
 }
 
-/* 专栏内文章列表 */
+/* 专栏详情页内的文章列表：每篇文章一个卡片，带序号徽章 */
 .series-article-list {
   list-style: none;
   counter-reset: series-article;
@@ -879,7 +947,7 @@ img { max-width: 100%; height: auto; }
   margin-bottom: 10px;
 }
 
-/* 文章页里的专栏信息块 */
+/* 文章页专栏信息块：专栏名 + 第 X/N 篇 + 上下篇导航 */
 .series-box {
   background: var(--bg-soft);
   border-left: 4px solid var(--accent);
@@ -944,7 +1012,7 @@ img { max-width: 100%; height: auto; }
   text-align: center;
 }
 
-/* 响应式：专栏 */
+/* 响应式：专栏卡片和信息块在小屏下单列展示 */
 @media (max-width: 640px) {
   .series-grid,
   .series-grid-lg {

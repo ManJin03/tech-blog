@@ -9,11 +9,21 @@
  *   2. 在 src/pages/ 下新增 .md 可生成自定义页面
  *   3. 在 templates/ 中修改模板改变渲染
  *
- * 专栏 frontmatter 支持两种写法：
- *   series: 现代C++深度指南                # 按日期自动排序
- *   series:                                # 自定义排序号
- *     name: 现代C++深度指南
- *     order: 2
+ * 专栏（series）说明：
+ *   专栏通过文章 frontmatter 中的 series 字段隐式定义，无需单独配置文件。
+ *   同名 series 的文章自动归为同一专栏，构建时生成专栏列表页和详情页。
+ *
+ *   series 支持两种写法：
+ *     1) series: 现代C++深度指南           — 仅指定专栏名，组内按 date 升序排列
+ *     2) series:                           — 对象写法，可手动控制顺序
+ *        name: 现代C++深度指南
+ *        order: 2                           — order 越小越靠前；未设 order 者按 date 排在后
+ *
+ *   专栏相关生成物：
+ *     - columns.html          专栏列表页（所有专栏卡片）
+ *     - columns/<slug>.html   单个专栏详情页（专栏内文章有序列表）
+ *     - 文章页内的 .series-box 专栏信息块（专栏名 + 第 X/N 篇 + 上下篇导航）
+ *     - 首页专栏速览区、归档/标签页专栏小标签、搜索页专栏下拉筛选
  */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, copyFileSync, existsSync, statSync, watch } from 'node:fs';
 import { join, extname, basename, dirname, relative } from 'node:path';
@@ -130,11 +140,15 @@ function toISODate(d) {
 }
 
 /**
- * 解析 frontmatter 中的 series 字段
- * 支持：
- *   1) series: 字符串专栏名   => 自动按 date 排序
- *   2) series: { name: 'xxx', order: 2 }  => order 数字越小越靠前，缺省按 date
- * 返回 { name, slug, order } 或 null
+ * 解析 frontmatter 中的 series 字段，返回标准化的专栏信息对象。
+ *
+ * 支持两种写法：
+ *   1) series: "专栏名"                          → order 为 null，由 collectSeries 按 date 排序
+ *   2) series: { name: "专栏名", order: 2 }       → order 为数字，越小越靠前
+ *
+ * @param {*} raw - gray-matter 解析出的 series 值（string | object | undefined）
+ * @returns {{ name: string, slug: string, order: number|null } | null}
+ *          slug 由 name 经 slugify 生成，用作专栏 URL 和分组键
  */
 function parseSeries(raw) {
   if (!raw) return null;
@@ -165,6 +179,7 @@ function collectPosts() {
     const summary = data.summary || content.replace(/[#`>*\-\[\]\(\)]/g, '').slice(0, 120) + '…';
     const toc = buildToc(content);
     const html = renderMarkdown(content);
+    // 解析专栏字段：无 series 则为 null，不归属任何专栏
     const series = parseSeries(data.series);
     return {
       slug,
@@ -186,11 +201,27 @@ function collectPosts() {
 }
 
 /**
- * 把文章按专栏分组，并对每组内排序：
- *   1. order 不为 null 的按 order 升序靠前
- *   2. order 为 null 的按 date 升序（专栏内一般按时间先后阅读）
- * 返回 [{ slug, name, posts, count, startDate, endDate, summary }, ...]
- * 并把每篇文章上追加 seriesIndex（1-based）、prev、next
+ * 把文章按专栏（series slug）分组，组内排序，并回填导航信息。
+ *
+ * 组内排序规则：
+ *   1. order 不为 null 的文章按 order 升序排在前面
+ *   2. order 为 null 的文章按 date 升序排在后面
+ *
+ * 回填到每篇文章的额外字段：
+ *   - seriesIndex: 在专栏中的序号（1-based）
+ *   - seriesPrev:  专栏内上一篇文章（无则 null）
+ *   - seriesNext:  专栏内下一篇文章（无则 null）
+ *
+ * 专栏级字段：
+ *   - count:     文章总数
+ *   - startDate: 专栏起始日期（首篇文章日期）
+ *   - endDate:   专栏结束日期（末篇文章日期）
+ *   - summary:   专栏简介（取首篇文章的 summary）
+ *
+ * 返回的专栏数组按 endDate 倒序排列（最近更新的专栏在前）。
+ *
+ * @param {Array} posts - collectPosts() 返回的文章列表
+ * @returns {Array} 专栏对象数组
  */
 function collectSeries(posts) {
   const map = new Map();
@@ -274,6 +305,10 @@ function renderLayout(opts) {
   <header class="site-header">
     <div class="container header-inner">
       <a href="/" class="site-title">${SITE.title}</a>
+      <a href="https://github.com/ManJin03" class="author-badge" target="_blank" rel="noopener" aria-label="ManJin 的 GitHub 主页">
+        <span class="author-badge-icon">🐙</span>
+        <span class="author-badge-label">ManJin</span>
+      </a>
       <aside class="visit-badge" id="visit-badge" aria-label="本站访问统计">
         <span class="visit-badge-icon">👥</span>
         <span class="visit-badge-label">本站访客</span>
@@ -317,7 +352,7 @@ async function buildHome(posts, series) {
       </div>
     </article>`).join('\n');
 
-  // 专栏速览卡片
+  // 专栏速览区：首页展示最多 6 个专栏卡片，点击跳转专栏详情页
   const seriesHtml = series.length ? `
     <section class="series-preview">
       <h2 class="section-title"><a href="/columns.html" class="section-title-link">专栏</a></h2>
@@ -343,6 +378,13 @@ async function buildHome(posts, series) {
     <section class="hero">
       <h1 class="hero-title">${SITE.title}</h1>
       <p class="hero-desc">${SITE.description}</p>
+      <div class="hero-intro">
+        <img class="hero-avatar" src="https://github.com/ManJin03.png" alt="ManJin" loading="lazy">
+        <div class="hero-intro-body">
+          <p class="hero-intro-name">ManJin</p>
+          <p class="hero-intro-bio">系统编程与异构计算爱好者，热衷于探索 C++ 底层机制、CUDA 并行编程与昇腾 Ascend 算子开发。这里是我记录技术学习与工程实践的地方，希望这些文字能对你有所帮助。</p>
+        </div>
+      </div>
     </section>
     ${seriesHtml}
     <section class="post-list">
@@ -367,15 +409,10 @@ async function buildPostPage(post) {
       }</ul></details>`
     : '';
 
-  // 专栏信息块：专栏名 + 目录 + 上/下篇
+  // 专栏信息块：当文章属于某个专栏时，渲染专栏名、序号及上下篇导航
+  // seriesIndex / seriesPrev / seriesNext / seriesCount 均由 collectSeries() 回填
   let seriesBoxHtml = '';
   if (post.series && post.seriesIndex) {
-    // 需要在 collectSeries 时回填所属专栏的 posts 列表；这里通过 seriesIndex 和 prev/next 呈现
-    const total = (post.seriesPrev ? post.seriesIndex - 1 : 0) + 1 +
-                  (post.seriesNext ? 999 : 0);  // 占位，下面用总数覆盖
-    // 其实 prev/next 已给出，专栏标题块显示 “第 X 篇 / 共 N 篇”：
-    // N = seriesIndex + 后面还有几篇（由于 next 是链表，我们用 post.seriesCount 更方便）
-    // 为了简化，我们把 seriesCount 在 collectSeries 里塞进每篇文章：
     const seriesCount = post.seriesCount || (() => {
       let n = post.seriesIndex; let cur = post;
       while (cur.seriesNext) { cur = cur.seriesNext; n++; }
@@ -505,9 +542,15 @@ function tagSizeClass(n) {
 
 /* ============================================
    专栏页
+   - buildColumnsList:  生成专栏列表页 columns.html
+   - buildColumnPage:   生成单个专栏详情页 columns/<slug>.html
    ============================================ */
 
-/** 专栏列表页 columns.html */
+/**
+ * 专栏列表页 columns.html
+ * 展示所有专栏卡片：专栏名、篇数、摘要、前 5 篇文章预览、起讫日期。
+ * 无专栏时显示提示信息。
+ */
 async function buildColumnsList(series) {
   let content;
   if (!series.length) {
@@ -560,7 +603,11 @@ async function buildColumnsList(series) {
   }));
 }
 
-/** 单个专栏详情页 /columns/<slug>.html */
+/**
+ * 单个专栏详情页 columns/<slug>.html
+ * 展示专栏标题、篇数、起讫日期、简介，以及专栏内全部文章的有序列表。
+ * 文章按 collectSeries 排序后的顺序展示，每篇带序号徽章、日期、标题、摘要和标签。
+ */
 async function buildColumnPage(col) {
   const dir = join(OUT, 'columns');
   ensureDir(dir);
@@ -671,8 +718,9 @@ function build404() {
 }
 
 /**
- * 构建搜索索引：供客户端 /search.html 异步加载并筛选
- * 字段精简，仅保留筛选与展示所需
+ * 构建搜索索引 search.json：供客户端 /search.html 异步加载并筛选
+ * 字段精简，仅保留筛选与展示所需。
+ * series 字段含 { slug, name }，供搜索页专栏下拉筛选和结果展示使用。
  */
 function buildSearchIndex(posts) {
   const index = posts.map(p => ({
@@ -783,19 +831,20 @@ async function build() {
 
   ensureDir(OUT);
   const posts = collectPosts();
+  // 收集专栏：分组、排序、回填 seriesIndex / seriesPrev / seriesNext
   const series = collectSeries(posts);
 
-  // 回填每篇文章的 seriesCount（供 buildPostPage 使用）
+  // 回填每篇文章的 seriesCount（专栏总篇数），供文章页专栏信息块使用
   for (const col of series) {
     for (const p of col.posts) p.seriesCount = col.count;
   }
 
   const pages = collectPages();
 
-  await buildHome(posts, series);
-  for (const post of posts) await buildPostPage(post);
-  await buildColumnsList(series);
-  for (const col of series) await buildColumnPage(col);
+  await buildHome(posts, series);                          // 首页（含专栏速览区）
+  for (const post of posts) await buildPostPage(post);     // 文章页（含专栏信息块）
+  await buildColumnsList(series);                           // 专栏列表页 columns.html
+  for (const col of series) await buildColumnPage(col);    // 各专栏详情页 columns/<slug>.html
   await buildArchive(posts);
   await buildTags(posts);
   buildSearchIndex(posts);

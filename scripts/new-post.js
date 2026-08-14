@@ -31,6 +31,10 @@ title: ${title}
 date: ${date}
 category: ${category}
 tags: []
+# series: 专栏名                      # 专栏（可选）：仅写专栏名则按日期自动排序
+# series:                              # 专栏（可选）：需要手动控制顺序时用对象写法
+#   name: 专栏名
+#   order: 1                           # 数字越小越靠前
 summary: 在此填写文章摘要（120 字以内，用于首页展示）。
 draft: false
 ---

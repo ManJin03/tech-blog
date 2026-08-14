@@ -79,9 +79,10 @@
   }
 
   // ---------- 执行筛选 ----------
+  // 四维度 AND 组合：专栏 × 日期(年/月) × 标签(多选) × 关键词
   function filter(f) {
     return index.filter(function (p) {
-      // 专栏
+      // 专栏筛选：文章的 series.slug 必须匹配所选专栏
       if (f.column) {
         if (!p.series || p.series.slug !== f.column) return false;
       }
@@ -95,7 +96,8 @@
           if (p.tags.indexOf(f.tags[i]) === -1) return false;
         }
       }
-      // 关键词：标题 + 摘要 + 标签 + 分类 + 专栏名
+      // 关键词：标题 + 摘要 + 标签 + 分类 + 专栏名（模糊匹配）
+      // 专栏名参与匹配，使搜索能命中整组系列文章
       if (f.q) {
         var seriesName = p.series ? p.series.name : "";
         var haystack = (
@@ -152,6 +154,7 @@
             return '<a href="/tags.html#' + slugify(t) + '" class="tag">#' + escapeHtml(t) + "</a>";
           })
           .join("");
+        // 专栏小标签：点击跳转专栏详情页，命中关键词时高亮
         var seriesHtml = p.series
           ? '<a class="post-series" href="/columns/' + p.series.slug + '.html">📚 ' + highlight(p.series.name, f.q) + "</a>"
           : "";
