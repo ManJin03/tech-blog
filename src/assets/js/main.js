@@ -79,4 +79,35 @@
       }
     });
   }
+
+  // 跟随光标的圆点层（仿 ManJin 总站风格）
+  // 仅精确指针设备（有鼠标）启用；触摸设备跳过，避免遮挡
+  if (window.matchMedia && window.matchMedia("(pointer: fine)").matches) {
+    const dot = document.createElement("div");
+    dot.className = "focus-cursor";
+    document.body.appendChild(dot);
+
+    let raf = null;
+    const move = function (e) {
+      if (raf) return;
+      raf = requestAnimationFrame(function () {
+        dot.style.transform = "translate(" + e.clientX + "px," + e.clientY + "px)";
+        raf = null;
+      });
+      dot.classList.add("is-visible");
+    };
+    window.addEventListener("mousemove", move, { passive: true });
+    window.addEventListener("mouseleave", function () {
+      dot.classList.remove("is-visible");
+    });
+
+    // 悬停可交互元素时放大变亮
+    const hotSelector = 'a, button, [role="button"], input, textarea, select, label[for], .post-card, .link-card, .tag';
+    document.addEventListener("mouseover", function (e) {
+      if (e.target.closest(hotSelector)) dot.classList.add("is-hot");
+    });
+    document.addEventListener("mouseout", function (e) {
+      if (e.target.closest(hotSelector)) dot.classList.remove("is-hot");
+    });
+  }
 })();

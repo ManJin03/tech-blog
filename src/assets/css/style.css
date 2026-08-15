@@ -13,6 +13,9 @@
   --radius: 8px;
   --radius-sm: 4px;
   --transition: 0.2s ease;
+  /* 自定义圆点光标（仿 ManJin 总站风格）：蓝色圆点，热点居中 (8,8) */
+  --cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='3.5' fill='%232f6bed'/%3E%3C/svg%3E") 8 8, auto;
+  --glow: rgba(47, 107, 237, 0.55);
 }
 
 [data-theme="light"] {
@@ -75,6 +78,39 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+
+/* 自定义鼠标光标（仿 ManJin 总站风格）
+   圆点光标统一应用到所有元素（含链接/按钮等可点元素）。
+   用 !important 兜底，防止任何元素显式声明（如 cursor: pointer/default/not-allowed）覆盖为系统光标 */
+* { cursor: var(--cursor) !important; }
+
+/* 精确指针（鼠标）设备：隐藏系统光标，统一由 JS 圆点层接管，避免悬停可交互元素时闪现原生光标 */
+@media (pointer: fine) {
+  * { cursor: none !important; }
+}
+
+/* ---------- 跟随光标的圆点（纯视觉，不干扰阅读） ---------- */
+.focus-cursor {
+  position: fixed;
+  top: 0; left: 0;
+  width: 10px; height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--glow, rgba(63, 120, 255, 0.55));
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0;
+  transition: opacity 0.25s, width 0.18s, height 0.18s, margin 0.18s;
+  will-change: transform;
+}
+.focus-cursor.is-visible { opacity: 1; }
+.focus-cursor.is-hot {
+  width: 18px; height: 18px;
+  margin: -9px 0 0 -9px;
+  background: var(--primary);
+  box-shadow: 0 0 16px var(--glow, rgba(63, 120, 255, 0.6));
 }
 
 a {
@@ -150,7 +186,7 @@ img { max-width: 100%; height: auto; }
   border-radius: var(--radius-sm);
   width: 34px;
   height: 34px;
-  cursor: pointer;
+  cursor: var(--cursor);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -202,7 +238,7 @@ img { max-width: 100%; height: auto; }
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
-  cursor: pointer;
+  cursor: var(--cursor);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -336,9 +372,13 @@ body.sidebar-collapsed .sidebar {
   border-color: var(--primary);
   background: var(--tag-bg);
 }
-.profile-social-btn img {
-  width: 16px;
-  height: 16px;
+.profile-social-btn .profile-social-icon {
+  display: inline-flex;
+  color: var(--text-soft);
+  transition: color var(--transition);
+}
+.profile-social-btn:hover .profile-social-icon {
+  color: var(--primary);
 }
 
 .profile-divider {
@@ -366,6 +406,9 @@ body.sidebar-collapsed .sidebar {
 }
 .profile-site-link,
 .profile-friend-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   color: var(--primary);
   text-decoration: none;
@@ -373,8 +416,14 @@ body.sidebar-collapsed .sidebar {
   border-radius: var(--radius-sm);
   transition: background var(--transition);
 }
-.profile-site-link::before { content: "🔗 "; }
-.profile-friend-link::before { content: "💛 "; }
+.profile-link-icon {
+  display: inline-flex;
+  color: var(--text-soft);
+  transition: color var(--transition);
+}
+.profile-friend-link:hover .profile-link-icon {
+  color: var(--primary);
+}
 .profile-site-link:hover,
 .profile-friend-link:hover {
   text-decoration: none;
@@ -608,7 +657,7 @@ body.sidebar-collapsed .sidebar {
 }
 .toc summary {
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--cursor);
   color: var(--text);
   padding: 4px 0;
 }
@@ -767,7 +816,7 @@ body.sidebar-collapsed .sidebar {
   border: 1px solid var(--primary);
   background: var(--primary);
   color: #fff;
-  cursor: pointer;
+  cursor: var(--cursor);
   transition: all var(--transition);
 }
 .search-btn:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
@@ -805,7 +854,7 @@ body.sidebar-collapsed .sidebar {
   background: var(--tag-bg);
   padding: 4px 10px 4px 8px;
   border-radius: 14px;
-  cursor: pointer;
+  cursor: var(--cursor);
   transition: all var(--transition);
   user-select: none;
 }

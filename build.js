@@ -69,12 +69,12 @@ const SITE = {
     { label: 'GitHub', href: 'https://github.com/' },
     { label: 'RSS', href: '/feed.xml' }
   ],
-  // 个人资料卡内的社交按钮（GitHub 风格图标）
+  // 个人资料卡内的社交按钮（图标仿 ManJin 总站外部链接样式：右上箭头方框）
   socialButtons: [
-    { name: 'GitHub', url: 'https://github.com/ManJin03', icon: 'https://cdn.simpleicons.org/github/181717' },
-    { name: '总站', url: 'https://manjin.pages.dev/', icon: 'https://cdn.simpleicons.org/globe/0969da' }
+    { name: 'GitHub', url: 'https://github.com/ManJin03', icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 4.7 18 5 18 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>' },
+    { name: '总站', url: 'https://manjin.pages.dev/', icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg>' }
   ],
-  // 友情链接（个人资料卡底部）
+  // 友情链接（个人资料卡底部，图标仿总站外部链接样式）
   friendLinks: [
     { name: 'Young man の 小破站', url: 'https://homepage-afl.pages.dev/' }
   ]
@@ -302,12 +302,17 @@ function renderLayout(opts) {
   // 左侧个人资料卡片（GitHub 风格）：含 ManJin 按钮、社交按钮、我的站点、友情链接
   const socialButtons = SITE.socialButtons.map(btn => `
         <a class="profile-social-btn" href="${btn.url}" target="_blank" rel="noopener" title="${btn.name}">
-          <img src="${btn.icon}" alt="${btn.name}" loading="lazy">
+          <span class="profile-social-icon">${btn.icon}</span>
           <span>${btn.name}</span>
         </a>`).join('');
 
+  // 友情链接跳转按钮，图标仿总站外部链接样式（右上箭头方框）
+  const friendIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
   const friendLinks = SITE.friendLinks.map(link => `
-          <a class="profile-friend-link" href="${link.url}" target="_blank" rel="noopener">${link.name}</a>`).join('');
+          <a class="profile-friend-link" href="${link.url}" target="_blank" rel="noopener">
+            <span class="profile-link-icon">${friendIcon}</span>
+            <span>${link.name}</span>
+          </a>`).join('');
 
   const sidebarHtml = `
     <aside class="sidebar" id="sidebar">
