@@ -7,7 +7,7 @@
  *
  * 说明：页面渲染逻辑已抽取到 functions/_lib/render.js（共享渲染模块），
  * 线上站点由 Cloudflare Pages Functions 从 KV 动态渲染，不依赖本地文件；
- * 本地构建仍可用于预览与 KV 迁移（scripts/seed-kv.js）。
+ * 本地构建仅用于预览（文章一律通过云端管理面板增删改）。
  *
  * 专栏（series）说明：
  *   专栏通过文章 frontmatter 中的 series 字段隐式定义，无需单独配置文件。
@@ -72,7 +72,7 @@ function readMd(file) {
   return { data, content };
 }
 
-/** 收集文章（仅本地构建 / KV 迁移使用） */
+/** 收集文章（本地构建使用） */
 function collectPosts() {
   if (!existsSync(POSTS_DIR)) return [];
   const files = readdirSync(POSTS_DIR).filter(f => extname(f) === '.md');

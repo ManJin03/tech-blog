@@ -35,6 +35,83 @@
     return new Date(d.getTime() - off).toISOString().slice(0, 10);
   }
 
+  // ---------- Markdown 文件解析（上传导入用） ----------
+
+  function unquote(s) {
+    s = String(s).trim();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length - 1] === '"') || (s[0] === "'" && s[s.length - 1] === "'"))) {
+      return s.slice(1, -1);
+    }
+    return s;
+  }
+
+  function parseTagList(s) {
+    s = String(s).trim();
+    var arr = (s[0] === '[' && s[s.length - 1] === ']') ? s.slice(1, -1).split(',') : s.split(/[,，]/);
+    return arr.map(unquote).filter(function (t) { return t; });
+  }
+
+  /** 简易 frontmatter 解析（覆盖本项目用到的 YAML 字段） */
+  function parseFrontmatter(yaml) {
+    var meta = {};
+    var lines = yaml.split(/\r?\n/);
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line || line[0] === '#') continue;
+      if (/^series\s*:\s*$/.test(line)) {
+        var name = null;
+        var order = '';
+        while (i + 1 < lines.length && /^\s{2,}/.test(lines[i + 1])) {
+          i++;
+          var sub = lines[i].trim();
+          var sm = /^([\w-]+)\s*:\s*(.*)$/.exec(sub);
+          if (!sm) continue;
+          if (sm[1] === 'name') name = unquote(sm[2]);
+          else if (sm[1] === 'order') order = unquote(sm[2]);
+        }
+        if (name) meta.series = order === '' ? name : { name: name, order: order };
+        continue;
+      }
+      var mm = /^([\w-]+)\s*:\s*(.*)$/.exec(line);
+      if (!mm) continue;
+      var key = mm[1];
+      var val = mm[2].trim();
+      if (key === 'tags') {
+        meta.tags = parseTagList(val);
+      } else if (val !== '' && val !== null && val !== undefined) {
+        meta[key] = unquote(val);
+      }
+    }
+    return meta;
+  }
+
+  /** 从上传的 md 文件内容中提取 frontmatter + Markdown，自动填入编辑器表单 */
+  function applyMdImport(form, raw) {
+    var m = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/.exec(raw);
+    var meta = {};
+    var content = raw;
+    if (m) {
+      meta = parseFrontmatter(m[1]);
+      content = m[2];
+    }
+    if (meta.title) $('#ed-title', form).value = meta.title;
+    if (meta.slug) $('#ed-slug', form).value = meta.slug;
+    if (meta.date) $('#ed-date', form).value = String(meta.date);
+    if (meta.category) $('#ed-category', form).value = meta.category;
+    if (meta.tags && meta.tags.length) $('#ed-tags', form).value = meta.tags.join(', ');
+    if (meta.series) {
+      if (typeof meta.series === 'string') {
+        $('#ed-series', form).value = meta.series;
+        $('#ed-series-order', form).value = '';
+      } else {
+        $('#ed-series', form).value = meta.series.name || '';
+        $('#ed-series-order', form).value = meta.series.order == null ? '' : String(meta.series.order);
+      }
+    }
+    if (meta.summary) $('#ed-summary', form).value = meta.summary;
+    $('#ed-content', form).value = content.replace(/^\s*\r?\n/, '');
+  }
+
   function api(path, options) {
     options = options || {};
     return fetch(path, {
@@ -220,7 +297,8 @@
       } else if (btn.getAttribute('data-act') === 'delete') {
         if (window.confirm('确定删除文章「' + article.title + '」吗？此操作不可恢复。')) {
           api('/api/articles/' + encodeURIComponent(slug), { method: 'DELETE' })
-            .then(refreshList)
+            // 删除成功后自动刷新页面
+            .then(function () { window.location.reload(); })
             .catch(function (err) { showError(overlay, err.message); });
         }
       }
@@ -236,6 +314,11 @@
     var isEdit = !!article;
     var overlay = showModal(isEdit ? '编辑文章' : '新建文章',
       '<form id="admin-editor-form" class="admin-form">' +
+        '<div class="admin-form-row">' +
+          '<label for="ed-import">导入 Markdown 文件</label>' +
+          '<input type="file" id="ed-import" class="admin-file-input" accept=".md,.markdown,text/markdown,text/plain" aria-describedby="ed-import-hint">' +
+          '<span class="admin-hint" id="ed-import-hint">选择 .md 文件后自动解析 frontmatter 并填入下方表单，供确认后保存</span>' +
+        '</div>' +
         '<div class="admin-form-row">' +
           '<label for="ed-title">标题 *</label>' +
           '<input type="text" id="ed-title" name="title" required value="' + esc(article ? article.title : '') + '">' +
@@ -285,6 +368,22 @@
     var form = $('#admin-editor-form', overlay);
     $('[data-close]', form).addEventListener('click', closeModal);
 
+    var fileInput = $('#ed-import', form);
+    if (fileInput) {
+      fileInput.addEventListener('change', function () {
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        hideError(form);
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          applyMdImport(form, String(e.target.result));
+          fileInput.value = '';
+        };
+        reader.onerror = function () { showError(form, '文件读取失败'); };
+        reader.readAsText(file, 'utf-8');
+      });
+    }
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       hideError(form);
@@ -307,11 +406,11 @@
       var done = api(path, { method: method, body: JSON.stringify(payload) });
 
       done.then(function (res) {
-        closeModal();
-        openPanel();
         if (!isEdit && res.article) {
           window.alert('文章已创建：' + res.article.title + '\n地址：/posts/' + res.article.slug + '.html');
         }
+        // 保存成功后自动刷新页面，确保看到最新的云端数据
+        window.location.reload();
       }).catch(function (err) {
         showError(form, err.message);
         btn.disabled = false;

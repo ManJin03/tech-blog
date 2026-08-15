@@ -41,15 +41,14 @@
 | `functions/_lib/auth.js` | 管理员会话认证（HMAC 签名 HttpOnly Cookie） |
 | `functions/api/*` | 登录、会话、文章 CRUD、下载端点 |
 | `functions/posts/[slug].html.js` 等 | 文章页 / 首页 / 归档 / 标签 / 专栏 / 搜索 / RSS 动态渲染 |
-| `build.js` | 本地构建脚本（复用 render.js，输出 `dist/`，可用于本地预览与 KV 迁移） |
-| `scripts/seed-kv.js` | 把 `src/posts/*.md` 迁移到 KV 的种子文件生成器 |
+| `build.js` | 本地构建脚本（复用 render.js，输出 `dist/`，仅用于本地预览） |
 
 ### KV 数据模型
 
 - `article:index`：文章元数据列表（不含正文，按日期倒序）—— 首页 / 归档 / 标签 / 专栏 / 搜索 / RSS 共用
 - `article:<slug>`：单篇文章完整记录（含 Markdown 正文、frontmatter 字段）
 
-## 部署与迁移（首次）
+## 部署（首次）
 
 ### 1. 创建 KV namespace 并配置绑定
 
@@ -85,32 +84,9 @@ id = "粘贴 namespace id"
 | `ADMIN_PASSWORD` | 管理员登录密码（必填） |
 | `SESSION_SECRET` | 会话签名密钥（可选，缺省回退用 ADMIN_PASSWORD），可用 `openssl rand -hex 32` 生成 |
 
-### 3. 迁移已有文章到 KV
+> **数据一致性说明**：文章数据统一以云端 KV 为准，所有增删改操作都通过浏览器管理面板完成。项目**不再提供**从本地向云端 KV 推送/迁移的脚本，避免本地文件覆盖云端数据造成线上事故。本地 `src/posts/` 仅作为草稿模板的存放地（已 gitignore）。
 
-**⚠️ 迁移云端前的重要警告（请务必留意）**
-正因为它是直接写入云端，执行前请务必确认，以免造成线上事故：
-
-生产环境风险（覆盖操作）：npm run kv:seed-remote是一个覆盖写入操作。如果你的 kv-seed.json 里包含的键（Key）和云端已有的键重名，旧数据会被直接覆盖且无法撤销。如果你的 KV 空间是生产环境正在使用的，这可能会导致线上应用数据错乱。
-
-```bash
-# 安装依赖
-npm install
-
-# 生成 kv-seed.json（读取 src/posts/*.md）
-npm run seed
-
-# 重要前提：登录至cloud flare pages，否则不能写入云端
-npx wrangler login
-
-#写入云端 KV
-npm run kv:seed-remote
-
-# 或写入本地 KV
-npm run kv:seed
-
-```
-
-### 4. 重新部署
+### 3. 重新部署
 
 仓库根目录新增的 `functions/` 目录会自动作为 Pages Functions 部署，构建命令保持 `npm run build`、输出目录 `dist`。
 
@@ -123,19 +99,20 @@ npm run kv:seed
 - 文章页登录状态下，正文上方会额外出现「✏️ 编辑」快捷入口
 - 会话 Cookie（30 天）由服务端 HMAC 签名，密码校验使用常数时间比较
 
-## 写作（本地方式）
+## 写作（本地模板 + 云端发布）
 
-仍然支持在 `src/posts/` 直接放 Markdown 文件：
+`src/posts/`（已 gitignore）可存放本地 Markdown 草稿模板，**不会**上传覆盖云端：
 
 ```bash
 npm run new -- "文章标题" 分类名
 ```
 
-然后在管理面板中创建，或编辑后执行迁移命令把数据同步到 KV：
+发布方式二选一：
 
-```bash
-npm run seed && npm run kv:seed # 或 npm run kv:seed-remote同步到云端
-```
+1. **管理面板直接写作**：登录 → 管理文章 → 新建文章，填写字段与正文后保存。
+2. **上传本地 md 文件**：登录 → 新建文章 → 在编辑器顶部「导入 Markdown 文件」选择本地 `.md`，系统自动解析 frontmatter（标题、slug、日期、分类、标签、专栏、摘要）并填入对应输入框，Markdown 正文填入正文框，确认后保存。
+
+> 云端不存在「把本地文件推送上去」的命令；如果需要在本地留底，可在管理面板编辑后从文章页「下载本文」保存副本。
 
 ### Frontmatter 字段
 
@@ -197,10 +174,9 @@ personal-blog/
 │   ├── search*.js            # 搜索页 + search.json
 │   └── feed.xml.js           # RSS
 ├── scripts/
-│   ├── new-post.js           # 新建文章脚手架
-│   └── seed-kv.js            # 本地文章 → KV 迁移
+│   └── new-post.js           # 新建本地文章模板（src/posts，已 gitignore）
 ├── src/
-│   ├── posts/                # 文章源文件（迁移数据用）
+│   ├── posts/                # 本地文章模板（gitignore，不上传云端）
 │   ├── pages/                # 自定义页面（如关于）
 │   └── assets/
 │       ├── css/style.css     # 全局样式与主题变量（含管理后台样式）
@@ -217,8 +193,8 @@ personal-blog/
 - Cloudflare Pages + Pages Functions + KV
 - [marked](https://github.com/markedjs/marked) - Markdown 解析
 - [highlight.js](https://highlightjs.org/) - 代码高亮
-- [gray-matter](https://github.com/jonschlinkert/gray-matter) - frontmatter 解析
-- [wrangler](https://developers.cloudflare.com/workers/wrangler/) - KV 迁移 / 本地开发
+- [gray-matter](https://github.com/jonschlinkert/gray-matter) - frontmatter 解析（构建用）
+- [wrangler](https://developers.cloudflare.com/workers/wrangler/) - 本地开发（wrangler pages dev）
 
 ## License
 

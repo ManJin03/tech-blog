@@ -5,8 +5,6 @@ src/posts
 # Build output
 dist/
 .wrangler
-# KV 迁移生成的种子文件（由 scripts/seed-kv.js 生成）
-kv-seed.json
 
 # Logs
 *.log

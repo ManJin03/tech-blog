@@ -1531,6 +1531,18 @@ body.sidebar-collapsed .sidebar {
   display: grid;
   gap: 14px;
 }
+.admin-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  opacity: 0.85;
+}
+.admin-file-input {
+  width: 100%;
+  font-size: 13px;
+  color: var(--text);
+  padding: 6px 0;
+}
 .admin-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
