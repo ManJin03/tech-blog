@@ -8,7 +8,8 @@
   --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas,
     "Courier New", monospace;
 
-  --max-width: 960px;
+  --max-width: 1100px;
+  --sidebar-width: 296px;
   --radius: 8px;
   --radius-sm: 4px;
   --transition: 0.2s ease;
@@ -163,11 +164,221 @@ img { max-width: 100%; height: auto; }
 [data-theme="dark"] .theme-icon-light { display: none; }
 
 /* ============================================
-   主体
+   主体：左右两栏布局
    ============================================ */
+.layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+  position: relative;
+}
+
 .site-main {
   flex: 1;
-  padding: 40px 20px 64px;
+  min-width: 0;
+  padding: 40px 0 64px;
+}
+
+/* ---------- 左侧个人资料栏（可隐藏） ---------- */
+.sidebar {
+  position: sticky;
+  top: 76px;
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  transition: margin-left var(--transition), opacity var(--transition);
+}
+
+.sidebar-inner {
+  position: relative;
+}
+
+/* 折叠/展开按钮（导航栏第一个：三条杠汉堡图标） */
+.sidebar-toggle.nav-toggle {
+  position: relative;
+  z-index: 6;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  transition: box-shadow var(--transition), border-color var(--transition), background var(--transition);
+}
+.sidebar-toggle.nav-toggle:hover {
+  border-color: var(--primary);
+  background: var(--bg-soft);
+  box-shadow: 0 4px 12px rgba(9, 105, 218, 0.25);
+}
+/* 三条杠图标 */
+.nav-toggle-bars {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 14px;
+}
+.nav-toggle-bars i {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--text);
+  transition: transform var(--transition), opacity var(--transition), top var(--transition);
+}
+.nav-toggle-bars i:nth-child(1) { top: 0; }
+.nav-toggle-bars i:nth-child(2) { top: 6px; }
+.nav-toggle-bars i:nth-child(3) { top: 12px; }
+/* 收起态：三条杠变为「×」提示已隐藏（视觉反馈） */
+body.sidebar-collapsed .nav-toggle-bars i:nth-child(1) { top: 6px; transform: rotate(45deg); }
+body.sidebar-collapsed .nav-toggle-bars i:nth-child(2) { opacity: 0; }
+body.sidebar-collapsed .nav-toggle-bars i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
+
+/* 隐藏态：侧栏移出并折叠 */
+body.sidebar-collapsed .sidebar {
+  margin-left: calc(var(--sidebar-width) * -1 - 32px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- GitHub 风格个人资料卡 ---------- */
+.profile-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.profile-banner {
+  height: 72px;
+  background: linear-gradient(135deg, #0969da, #6f42c1);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+
+.profile-avatar {
+  margin: -36px 16px 0;
+  width: 80px;
+  height: 80px;
+}
+.profile-avatar img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 4px solid var(--bg);
+  background: var(--bg);
+  object-fit: cover;
+  display: block;
+}
+
+.profile-identity {
+  padding: 12px 16px 0;
+}
+.profile-brand {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: var(--tag-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  margin-bottom: 8px;
+}
+.profile-brand:hover { text-decoration: none; background: var(--primary); color: #fff; }
+.profile-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.profile-login {
+  font-size: 14px;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+
+.profile-bio {
+  padding: 0 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+
+.profile-social {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+}
+.profile-social-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  text-decoration: none;
+  transition: all var(--transition);
+}
+.profile-social-btn:hover {
+  text-decoration: none;
+  border-color: var(--primary);
+  background: var(--tag-bg);
+}
+.profile-social-btn img {
+  width: 16px;
+  height: 16px;
+}
+
+.profile-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 16px;
+}
+
+.profile-section {
+  padding: 8px 16px 12px;
+}
+.profile-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.profile-site-links,
+.profile-friend-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.profile-site-link,
+.profile-friend-link {
+  font-size: 14px;
+  color: var(--primary);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition);
+}
+.profile-site-link::before { content: "🔗 "; }
+.profile-friend-link::before { content: "💛 "; }
+.profile-site-link:hover,
+.profile-friend-link:hover {
+  text-decoration: none;
+  background: var(--bg-soft);
 }
 
 /* Hero */
@@ -241,6 +452,26 @@ img { max-width: 100%; height: auto; }
    文章卡片列表
    ============================================ */
 .post-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* 首页顶部博客介绍 */
+.blog-intro {
+  padding: 8px 0 24px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+}
+.blog-intro-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.blog-intro-desc {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-soft);
+  max-width: 720px;
+}
 
 .post-card {
   padding: 24px 0;
@@ -621,6 +852,18 @@ img { max-width: 100%; height: auto; }
 /* ============================================
    响应式
    ============================================ */
+/* 中屏：侧栏不再固定宽度，改为顶部横向卡片，内容在下 */
+@media (max-width: 900px) {
+  .layout { flex-direction: column; }
+  .sidebar {
+    position: static;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  .profile-card { max-width: 100%; }
+  .site-main { padding-top: 24px; }
+}
+
 @media (max-width: 640px) {
   .header-inner { gap: 12px; }
   .site-nav { gap: 14px; }

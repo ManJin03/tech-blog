@@ -51,7 +51,11 @@ const SITE = {
   title: 'ByteForge',
   description: '一个关注系统编程、异构计算与工程实践的个人技术博客',
   url: 'https://example.com',
-  author: 'Your Name',
+  author: 'ManJin',
+  login: 'ManJin03',
+  avatar: 'https://github.com/ManJin03.png',
+  homepage: 'https://manjin.pages.dev/',
+  bio: '系统编程与异构计算爱好者，热衷于探索 C++ 底层机制、CUDA 并行编程与昇腾 Ascend 算子开发。这里是我记录技术学习与工程实践的地方，希望这些文字能对你有所帮助。',
   lang: 'zh-CN',
   nav: [
     { label: '首页', href: '/' },
@@ -64,6 +68,15 @@ const SITE = {
   social: [
     { label: 'GitHub', href: 'https://github.com/' },
     { label: 'RSS', href: '/feed.xml' }
+  ],
+  // 个人资料卡内的社交按钮（GitHub 风格图标）
+  socialButtons: [
+    { name: 'GitHub', url: 'https://github.com/ManJin03', icon: 'https://cdn.simpleicons.org/github/181717' },
+    { name: '总站', url: 'https://manjin.pages.dev/', icon: 'https://cdn.simpleicons.org/globe/0969da' }
+  ],
+  // 友情链接（个人资料卡底部）
+  friendLinks: [
+    { name: 'Young man の 小破站', url: 'https://homepage-afl.pages.dev/' }
   ]
 };
 
@@ -285,6 +298,42 @@ function renderLayout(opts) {
   const socialHtml = SITE.social.map(s =>
     `<a href="${s.href}" class="social-link" target="_blank" rel="noopener">${s.label}</a>`
   ).join('\n');
+
+  // 左侧个人资料卡片（GitHub 风格）：含 ManJin 按钮、社交按钮、我的站点、友情链接
+  const socialButtons = SITE.socialButtons.map(btn => `
+        <a class="profile-social-btn" href="${btn.url}" target="_blank" rel="noopener" title="${btn.name}">
+          <img src="${btn.icon}" alt="${btn.name}" loading="lazy">
+          <span>${btn.name}</span>
+        </a>`).join('');
+
+  const friendLinks = SITE.friendLinks.map(link => `
+          <a class="profile-friend-link" href="${link.url}" target="_blank" rel="noopener">${link.name}</a>`).join('');
+
+  const sidebarHtml = `
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-inner">
+        <div class="profile-card">
+          <div class="profile-banner"></div>
+          <div class="profile-avatar">
+            <img src="${SITE.avatar}" alt="${SITE.author}" loading="lazy">
+          </div>
+          <div class="profile-identity">
+            <div class="profile-name">${SITE.author}</div>
+            <div class="profile-login">@${SITE.login}</div>
+          </div>
+          <p class="profile-bio">${SITE.bio}</p>
+          <div class="profile-social">
+            ${socialButtons}
+          </div>
+          <div class="profile-divider"></div>
+          <div class="profile-section">
+            <div class="profile-section-title">友情链接</div>
+            <div class="profile-friend-links">${friendLinks}</div>
+          </div>
+        </div>
+      </div>
+    </aside>`;
+
   return `<!DOCTYPE html>
 <html lang="${SITE.lang}" data-theme="light">
 <head>
@@ -304,11 +353,10 @@ function renderLayout(opts) {
 <body>
   <header class="site-header">
     <div class="container header-inner">
+      <button class="sidebar-toggle nav-toggle" id="sidebarToggle" aria-label="折叠/展开侧边栏" title="折叠/展开侧边栏" aria-expanded="true">
+        <span class="nav-toggle-bars" aria-hidden="true"><i></i><i></i><i></i></span>
+      </button>
       <a href="/" class="site-title">${SITE.title}</a>
-      <a href="https://github.com/ManJin03" class="author-badge" target="_blank" rel="noopener" aria-label="ManJin 的 GitHub 主页">
-        <span class="author-badge-icon">🐙</span>
-        <span class="author-badge-label">ManJin</span>
-      </a>
       <aside class="visit-badge" id="visit-badge" aria-label="本站访问统计">
         <span class="visit-badge-icon">👥</span>
         <span class="visit-badge-label">本站访客</span>
@@ -322,9 +370,12 @@ function renderLayout(opts) {
       </button>
     </div>
   </header>
-  <main class="container site-main">
+  <div class="container layout">
+    ${sidebarHtml}
+    <main class="site-main">
 ${content}
-  </main>
+    </main>
+  </div>
   <footer class="site-footer">
     <div class="container footer-inner">
       <div class="social">${socialHtml}</div>
@@ -375,16 +426,9 @@ async function buildHome(posts, series) {
     </section>` : '';
 
   const content = `
-    <section class="hero">
-      <h1 class="hero-title">${SITE.title}</h1>
-      <p class="hero-desc">${SITE.description}</p>
-      <div class="hero-intro">
-        <img class="hero-avatar" src="https://github.com/ManJin03.png" alt="ManJin" loading="lazy">
-        <div class="hero-intro-body">
-          <p class="hero-intro-name">ManJin</p>
-          <p class="hero-intro-bio">系统编程与异构计算爱好者，热衷于探索 C++ 底层机制、CUDA 并行编程与昇腾 Ascend 算子开发。这里是我记录技术学习与工程实践的地方，希望这些文字能对你有所帮助。</p>
-        </div>
-      </div>
+    <section class="blog-intro">
+      <h1 class="blog-intro-title">${SITE.title}</h1>
+      <p class="blog-intro-desc">${SITE.description}</p>
     </section>
     ${seriesHtml}
     <section class="post-list">

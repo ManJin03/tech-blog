@@ -57,4 +57,26 @@
 
     headings.forEach(function (h) { observer.observe(h); });
   }
+
+  // 左侧个人资料栏：折叠 / 展开（带 localStorage 持久化）
+  const SIDEBAR_KEY = "byteforge-sidebar-collapsed";
+  const sidebar = document.getElementById("sidebar");
+  const sidebarToggle = document.getElementById("sidebarToggle");
+  if (sidebar && sidebarToggle) {
+    try {
+      if (localStorage.getItem(SIDEBAR_KEY) === "1") {
+        document.body.classList.add("sidebar-collapsed");
+      }
+    } catch (e) {
+      /* 静默降级 */
+    }
+    sidebarToggle.addEventListener("click", function () {
+      const collapsed = document.body.classList.toggle("sidebar-collapsed");
+      try {
+        localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0");
+      } catch (e) {
+        /* 静默降级 */
+      }
+    });
+  }
 })();
