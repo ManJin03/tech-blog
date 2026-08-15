@@ -695,24 +695,70 @@ export function renderSearchPage(posts, series) {
   });
 }
 
-/** RSS feed.xml */
-export function renderRss(posts) {
-  const items = posts.slice(0, 20).map(p => `
-    <item>
-      <title>${escapeXml(p.title)}</title>
-      <link>${SITE.url}/posts/${p.slug}.html</link>
-      <guid isPermaLink="true">${SITE.url}/posts/${p.slug}.html</guid>
-      <pubDate>${new Date(p.date).toUTCString()}</pubDate>
-      <description>${escapeXml(p.summary)}</description>
-    </item>`).join('');
+/** 从 markdown 正文提取纯文本摘要（用于 RSS description 兜底） */
+function plainText(md, len) {
+  return String(md || '')
+    .replace(/[#`>*\-\[\]\(\)]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, len);
+}
+
+/** RSS feed.xml（RSS 2.0 + Atom/DC 扩展：自引用、作者、分类；仅摘要，不含全文） */
+export function renderRss(posts, opts = {}) {
+  const { limit = 20 } = opts;
+  const feedUrl = `${SITE.url}/feed.xml`;
+  // 频道最后构建时间：取最新文章日期，无文章时回退到当前时间
+  const buildDate = new Date(posts.length ? (posts[0].date || Date.now()) : Date.now());
+  const lastBuildDate = isNaN(buildDate) ? new Date() : buildDate;
+
+  const items = posts.slice(0, limit).map(p => {
+    if (!p || !p.slug) return '';
+    const url = `${SITE.url}/posts/${escapeXml(p.slug)}.html`;
+
+    // 日期防御：无效日期不输出 pubDate / dc:date，避免生成 "Invalid Date"
+    const date = new Date(p.date || p.updatedAt);
+    const dateValid = !isNaN(date.getTime());
+    const pubDate = dateValid ? date.toUTCString() : '';
+    const isoDate = dateValid ? toISODate(date) : '';
+
+    // description 兜底：summary 为空时截取正文纯文本
+    const summary = (p.summary || '').trim() || plainText(p.content || p.html || '', 120);
+    const tags = Array.isArray(p.tags) ? p.tags : [];
+
+    const lines = [
+      '    <item>',
+      `      <title>${escapeXml(p.title)}</title>`,
+      `      <link>${url}</link>`,
+      `      <guid isPermaLink="true">${url}</guid>`
+    ];
+    if (pubDate) lines.push(`      <pubDate>${pubDate}</pubDate>`);
+    lines.push(`      <description>${escapeXml(summary)}</description>`);
+    lines.push(`      <dc:creator>${escapeXml(SITE.author)}</dc:creator>`);
+    if (isoDate) lines.push(`      <dc:date>${isoDate}</dc:date>`);
+    for (const t of tags) lines.push(`      <category>${escapeXml(t)}</category>`);
+    lines.push('    </item>');
+    return lines.join('\n');
+  }).filter(Boolean).join('\n');
+
   return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>${escapeXml(SITE.title)}</title>
     <link>${SITE.url}</link>
     <description>${escapeXml(SITE.description)}</description>
     <language>${SITE.lang}</language>
-    ${items}
+    <lastBuildDate>${lastBuildDate.toUTCString()}</lastBuildDate>
+    <generator>ByteForge</generator>
+    <atom:link href="${feedUrl}" rel="self" type="application/rss+xml"/>
+    <image>
+      <url>${SITE.avatar}?size=144</url>
+      <title>${escapeXml(SITE.title)}</title>
+      <link>${SITE.url}</link>
+      <width>144</width>
+      <height>144</height>
+    </image>
+${items}
   </channel>
 </rss>`;
 }
