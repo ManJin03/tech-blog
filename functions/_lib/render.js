@@ -15,7 +15,7 @@ import hljs from 'highlight.js';
 export const SITE = {
   title: 'ByteForge',
   description: '一个关注系统编程、异构计算与工程实践的个人技术博客',
-  url: 'https://example.com',
+  url: 'https://tech-manjin.pages.dev',
   author: 'ManJin',
   login: 'ManJin03',
   avatar: 'https://github.com/ManJin03.png',
