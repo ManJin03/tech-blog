@@ -5,6 +5,10 @@ name = "tech-blog"
 compatibility_date = "2026-08-15"
 pages_build_output_dir = "dist"
 
+# 本地开发服务器配置（wrangler pages dev）
+[dev]
+port = 8880
+
 # 文章存储 KV（绑定变量名：KV）
 # 在 Cloudflare Dashboard → Workers & Pages → KV 中创建 namespace，并把 id 填到下面
 # 也可运行：npx wrangler kv namespace create ARTICLE_KV

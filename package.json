@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js --watch",
-    "serve": "node build.js && npx --yes serve dist -p 4321",
+    "serve": "node build.js && npx --yes serve dist -p 8881",
     "new": "node scripts/new-post.js",
     "seed": "node scripts/seed-kv.js",
     "kv:seed": "npx wrangler kv bulk put --binding=KV kv-seed.json",

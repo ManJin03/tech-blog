@@ -79,13 +79,8 @@
     document.body.appendChild(overlay);
     modal = { overlay: overlay };
 
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) closeModal();
-    });
+    // 仅右上角关闭按钮可退出，点击遮罩空白不关闭
     $('.admin-modal-close', overlay).addEventListener('click', closeModal);
-    overlay.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeModal();
-    });
     return overlay;
   }
 
@@ -216,7 +211,12 @@
       var article = articles.find(function (a) { return a.slug === slug; });
       if (!article) return;
       if (btn.getAttribute('data-act') === 'edit') {
-        openEditor(article);
+        // 列表接口只返回元数据（不含正文），编辑前需拉取完整文章
+        api('/api/articles/' + encodeURIComponent(slug))
+          .then(function (data) {
+            openEditor(data.article);
+          })
+          .catch(function (err) { showError(overlay, err.message); });
       } else if (btn.getAttribute('data-act') === 'delete') {
         if (window.confirm('确定删除文章「' + article.title + '」吗？此操作不可恢复。')) {
           api('/api/articles/' + encodeURIComponent(slug), { method: 'DELETE' })
