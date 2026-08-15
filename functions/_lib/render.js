@@ -244,7 +244,7 @@ export function renderLayout(opts) {
         <div class="profile-card">
           <div class="profile-banner"></div>
           <div class="profile-avatar">
-            <img src="${SITE.avatar}" alt="${SITE.author}" loading="lazy">
+            <img src="${SITE.avatar}" alt="${SITE.author}" loading="lazy" onerror="this.onerror=null;this.src='/assets/head.jpg'">
           </div>
           <div class="profile-identity">
             <div class="profile-name">${SITE.author}</div>
