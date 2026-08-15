@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 wrangler.toml
+src/posts
 # Build output
 dist/
 .wrangler
