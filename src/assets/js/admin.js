@@ -549,7 +549,15 @@
     btn.textContent = '✏️ 编辑';
     btn.addEventListener('click', function (e) {
       e.preventDefault();
-      var slug = window.location.pathname.split('/').pop().replace(/\.html$/, '');
+      // pathname 返回的是已编码路径（中文 slug 形如 %E4%B8%AD...），
+      // 必须先解码一次再重新编码，否则会双重编码导致接口 404
+      var rawSlug = window.location.pathname.split('/').pop().replace(/\.html$/, '');
+      var slug;
+      try {
+        slug = decodeURIComponent(rawSlug);
+      } catch (err) {
+        slug = rawSlug; // 非法的百分号编码时回退原值
+      }
       if (!slug) return;
       api('/api/articles/' + encodeURIComponent(slug))
         .then(function (data) {
