@@ -30,6 +30,28 @@ export function normalizeSeries(series) {
 }
 
 /**
+ * 将文章序列化为 Markdown 文本（含 YAML frontmatter），供"下载本文"接口使用。
+ * @param {object} article 完整文章记录
+ * @returns {string}
+ */
+export function serializeArticle(article) {
+  const lines = ['---', `title: ${JSON.stringify(article.title)}`, `date: ${article.date}`];
+  if (article.category) lines.push(`category: ${JSON.stringify(article.category)}`);
+  if (Array.isArray(article.tags) && article.tags.length) {
+    lines.push(`tags: [${article.tags.map(t => JSON.stringify(t)).join(', ')}]`);
+  }
+  if (article.summary) lines.push(`summary: ${JSON.stringify(article.summary)}`);
+  if (article.series) {
+    lines.push('series:');
+    lines.push(`  name: ${JSON.stringify(article.series.name)}`);
+    if (article.series.order !== null && article.series.order !== undefined) {
+      lines.push(`  order: ${article.series.order}`);
+    }
+  }
+  return lines.join('\n') + '\n---\n\n' + (article.content || '');
+}
+
+/**
  * 校验 + 归一化文章数据。
  * @param {object} body    前端提交的字段
  * @param {object|null} existing 已存在的文章记录（更新时传入，用于保留 createdAt 等）

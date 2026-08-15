@@ -97,7 +97,12 @@
       dot.classList.add("is-visible");
     };
     window.addEventListener("mousemove", move, { passive: true });
-    window.addEventListener("mouseleave", function () {
+    // 鼠标移出整个文档（浏览器边缘、切换到其他应用）时隐藏自定义光标；
+    // 重新移入时 mousemove 会再次显示
+    document.addEventListener("mouseleave", function () {
+      dot.classList.remove("is-visible");
+    });
+    window.addEventListener("blur", function () {
       dot.classList.remove("is-visible");
     });
 

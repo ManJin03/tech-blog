@@ -13,6 +13,7 @@
   var articles = [];
   var modal = null;
   var currentSlug = null; // 编辑中的文章 slug
+  var errorHideTimer = null; // 表单内联错误 4 秒自动隐藏
 
   // ---------- 工具 ----------
 
@@ -167,12 +168,67 @@
       el.textContent = message;
       el.hidden = false;
     }
+    // 错误消息同样 4 秒后自动消失（与成功 toast 一致）
+    if (errorHideTimer) clearTimeout(errorHideTimer);
+    errorHideTimer = setTimeout(function () {
+      if (el) el.hidden = true;
+      errorHideTimer = null;
+    }, 4000);
     return message;
   }
 
   function hideError(form) {
+    if (errorHideTimer) {
+      clearTimeout(errorHideTimer);
+      errorHideTimer = null;
+    }
     var el = $('.admin-status', form);
     if (el) el.hidden = true;
+  }
+
+  // ---------- 自定义消息 / 确认（替代浏览器 alert / confirm，避免丢失鼠标样式） ----------
+
+  function showToast(message, opts) {
+    opts = opts || {};
+    var toast = document.createElement('div');
+    toast.className = 'admin-toast' + (opts.type ? ' admin-toast-' + opts.type : '');
+    toast.setAttribute('role', 'status');
+    toast.innerHTML =
+      '<span class="admin-toast-msg">' + esc(String(message)).replace(/\n/g, '<br>') + '</span>' +
+      '<button type="button" class="admin-toast-close" aria-label="关闭">✕</button>';
+    document.body.appendChild(toast);
+
+    var close = function () {
+      if (!toast.isConnected) return;
+      toast.classList.add('is-closing');
+      setTimeout(function () { toast.remove(); }, 220);
+    };
+    $('.admin-toast-close', toast).addEventListener('click', close);
+    if (opts.autoClose !== false) {
+      setTimeout(close, opts.duration || 4000);
+    }
+    return toast;
+  }
+
+  function confirmDialog(message, title, onConfirm) {
+    if (typeof title === 'function') {
+      onConfirm = title;
+      title = undefined;
+    }
+    var overlay = showModal(title || '确认操作',
+      '<div class="admin-confirm">' +
+        '<p class="admin-confirm-text">' + esc(message) + '</p>' +
+        '<div class="admin-form-actions">' +
+          '<button type="button" class="admin-btn admin-btn-ghost" data-close>取消</button>' +
+          '<button type="button" class="admin-btn admin-btn-danger" id="admin-confirm-ok">确定</button>' +
+        '</div>' +
+      '</div>'
+    );
+    $('[data-close]', overlay).addEventListener('click', closeModal);
+    $('#admin-confirm-ok', overlay).addEventListener('click', function () {
+      closeModal();
+      if (onConfirm) onConfirm();
+    });
   }
 
   // ---------- 登录 ----------
@@ -295,12 +351,15 @@
           })
           .catch(function (err) { showError(overlay, err.message); });
       } else if (btn.getAttribute('data-act') === 'delete') {
-        if (window.confirm('确定删除文章「' + article.title + '」吗？此操作不可恢复。')) {
+        confirmDialog('确定删除文章「' + article.title + '」吗？此操作不可恢复。', '删除确认', function () {
           api('/api/articles/' + encodeURIComponent(slug), { method: 'DELETE' })
-            // 删除成功后自动刷新页面
-            .then(function () { window.location.reload(); })
+            .then(function () {
+              showToast('已删除文章：' + article.title, { type: 'success' });
+              // 删除成功后自动刷新页面
+              setTimeout(function () { window.location.reload(); }, 1200);
+            })
             .catch(function (err) { showError(overlay, err.message); });
-        }
+        });
       }
     });
 
@@ -312,6 +371,10 @@
   function openEditor(article) {
     currentSlug = article ? article.slug : null;
     var isEdit = !!article;
+    // 编辑时的原标题 / 原 slug，以及 slug 输入框是否被手动修改
+    var originalTitle = article ? article.title : '';
+    var originalSlug = article ? article.slug : '';
+    var slugTouched = false;
     var overlay = showModal(isEdit ? '编辑文章' : '新建文章',
       '<form id="admin-editor-form" class="admin-form">' +
         '<div class="admin-form-row">' +
@@ -390,9 +453,21 @@
       var btn = $('button[type="submit"]', form);
       btn.disabled = true;
 
+      var titleVal = $('#ed-title', form).value;
+      var slugVal = $('#ed-slug', form).value;
+      if (isEdit) {
+        if (titleVal === originalTitle) {
+          // 标题未修改：保留原 slug，避免手动指定的 slug 被意外重算
+          slugVal = originalSlug;
+        } else if (!slugTouched) {
+          // 标题已修改且未手动改 slug：留空交给后端按新标题自动生成
+          slugVal = '';
+        }
+      }
+
       var payload = {
-        title: $('#ed-title', form).value,
-        slug: $('#ed-slug', form).value,
+        title: titleVal,
+        slug: slugVal,
         date: $('#ed-date', form).value,
         category: $('#ed-category', form).value,
         tags: $('#ed-tags', form).value,
@@ -406,18 +481,42 @@
       var done = api(path, { method: method, body: JSON.stringify(payload) });
 
       done.then(function (res) {
-        if (!isEdit && res.article) {
-          window.alert('文章已创建：' + res.article.title + '\n地址：/posts/' + res.article.slug + '.html');
+        var newSlug = res.article && res.article.slug;
+        showToast(
+          (isEdit ? '文章已保存' : '文章已创建') + (res.article ? '：' + res.article.title : '') +
+          (!isEdit && newSlug ? '\n地址：/posts/' + newSlug + '.html' : ''),
+          { type: 'success' }
+        );
+        if (isEdit && newSlug && newSlug !== currentSlug) {
+          // slug 已修改：若当前正处于旧地址的文章页，跳转到新地址，避免刷新后 404
+          var oldPath = '/posts/' + encodeURIComponent(currentSlug) + '.html';
+          if (window.location.pathname === oldPath) {
+            setTimeout(function () {
+              window.location.href = '/posts/' + encodeURIComponent(newSlug) + '.html';
+            }, 1200);
+            return;
+          }
         }
         // 保存成功后自动刷新页面，确保看到最新的云端数据
-        window.location.reload();
+        setTimeout(function () { window.location.reload(); }, 1200);
       }).catch(function (err) {
         showError(form, err.message);
         btn.disabled = false;
       });
     });
 
-    var titleInput = $('#ed-title', overlay);
+    // slug 输入框手动编辑后不再自动跟随标题
+    var slugInput = $('#ed-slug', form);
+    if (slugInput) {
+      slugInput.addEventListener('input', function () { slugTouched = true; });
+    }
+    // 修改标题且未手动改 slug 时，清空 slug 让后端自动生成（placeholder 有提示）
+    var titleInput = $('#ed-title', form);
+    if (titleInput) {
+      titleInput.addEventListener('input', function () {
+        if (!slugTouched && slugInput) slugInput.value = '';
+      });
+    }
     if (titleInput) titleInput.focus();
   }
 
@@ -457,7 +556,7 @@
           openEditor(data.article);
         })
         .catch(function (err) {
-          window.alert(err.message);
+          showToast(err.message, { type: 'error' }); // 4 秒后自动消失
         });
     });
     actions.appendChild(btn);

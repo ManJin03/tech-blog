@@ -53,14 +53,27 @@ export async function readArticle(env, slug) {
   }
 }
 
-/** 新增或更新文章，并同步索引 */
-export async function writeArticle(env, article) {
+/**
+ * 新增或更新文章，并同步索引。
+ * @param {object} env
+ * @param {object} article 完整文章记录
+ * @param {string} [prevSlug] 更新时传入原 slug；若与 article.slug 不同则视为 slug 迁移：
+ *                            删除旧记录 key，并从索引中移除旧 slug 条目（避免残留幽灵条目导致 404 / slug 冲突）
+ */
+export async function writeArticle(env, article, prevSlug) {
+  if (prevSlug && prevSlug !== article.slug) {
+    await env.KV.delete(articleKey(prevSlug));
+  }
   await env.KV.put(articleKey(article.slug), JSON.stringify(article));
   const list = await readIndex(env);
   const idx = list.findIndex(item => item.slug === article.slug);
   const meta = metaFromArticle(article);
   if (idx >= 0) list[idx] = meta;
   else list.push(meta);
+  if (prevSlug && prevSlug !== article.slug) {
+    const oldIdx = list.findIndex(item => item.slug === prevSlug);
+    if (oldIdx >= 0) list.splice(oldIdx, 1);
+  }
   list.sort((a, b) => new Date(b.date) - new Date(a.date));
   await writeIndex(env, list);
   return meta;

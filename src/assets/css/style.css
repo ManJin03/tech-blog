@@ -1352,7 +1352,10 @@ body.sidebar-collapsed .sidebar {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 6px 0 0;
+  margin: 10px 0 16px;
+}
+.post-header .post-tags {
+  margin-top: 2px;
 }
 .post-download {
   display: inline-flex;
@@ -1424,6 +1427,59 @@ body.sidebar-collapsed .sidebar {
 }
 .admin-modal-body {
   padding: 16px 20px 20px;
+}
+
+/* ---------- 自定义消息通知（替代浏览器 alert） ---------- */
+.admin-toast {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  color: var(--text);
+  animation: admin-toast-in 0.2s ease;
+}
+.admin-toast-success { border-left-color: #2ea043; }
+.admin-toast-error { border-left-color: #d73a49; }
+.admin-toast-msg { flex: 1; line-height: 1.5; }
+.admin-toast-close {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+.admin-toast-close:hover {
+  color: var(--text);
+  background: var(--bg-soft);
+}
+.admin-toast.is-closing {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-6px);
+  transition: all 0.2s;
+}
+@keyframes admin-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ---------- 自定义确认框（替代浏览器 confirm） ---------- */
+.admin-confirm-text {
+  margin: 0 0 18px;
+  line-height: 1.6;
+  color: var(--text);
 }
 
 /* ---------- 管理面板 ---------- */
