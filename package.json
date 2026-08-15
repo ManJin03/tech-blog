@@ -10,6 +10,7 @@
     "new": "node scripts/new-post.js",
     "seed": "node scripts/seed-kv.js",
     "kv:seed": "npx wrangler kv bulk put --binding=KV kv-seed.json",
+    "kv:seed-remote": "npx wrangler kv bulk put --binding=KV --remote kv-seed.json",
     "pages:dev": "npx wrangler pages dev dist"
   },
   "keywords": [

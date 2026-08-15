@@ -56,6 +56,7 @@
 ```bash
 # 在项目根目录执行（生成 KV namespace 后把 id 填入 wrangler.toml）
 npx wrangler kv namespace create ARTICLE_KV
+# 或在cloud flare pages中手动创建
 ```
 
 把输出的 namespace `id` 填入 `wrangler.toml`：
@@ -66,7 +67,7 @@ binding = "KV"
 id = "粘贴 namespace id"
 ```
 
-**重要**：建议直接在 Dashboard 中为 Pages 项目绑定该 KV namespace：
+**重要**：建议直接在 Dashboard 中为 Pages 项目绑定该 KV namespace,本地用wrangler.toml，已提供配置文件md：
 
 `Cloudflare Dashboard → Workers & Pages → 你的 Pages 项目 → Settings → Functions → Bindings → 添加 KV namespace 绑定`
 
@@ -86,6 +87,11 @@ id = "粘贴 namespace id"
 
 ### 3. 迁移已有文章到 KV
 
+**⚠️ 迁移云端前的重要警告（请务必留意）**
+正因为它是直接写入云端，执行前请务必确认，以免造成线上事故：
+
+生产环境风险（覆盖操作）：npm run kv:seed-remote是一个覆盖写入操作。如果你的 kv-seed.json 里包含的键（Key）和云端已有的键重名，旧数据会被直接覆盖且无法撤销。如果你的 KV 空间是生产环境正在使用的，这可能会导致线上应用数据错乱。
+
 ```bash
 # 安装依赖
 npm install
@@ -93,8 +99,15 @@ npm install
 # 生成 kv-seed.json（读取 src/posts/*.md）
 npm run seed
 
-# 写入 KV（在 wrangler.toml 配置好 KV id 后执行）
+# 重要前提：登录至cloud flare pages，否则不能写入云端
+npx wrangler login
+
+#写入云端 KV
+npm run kv:seed-remote
+
+# 或写入本地 KV
 npm run kv:seed
+
 ```
 
 ### 4. 重新部署
@@ -121,7 +134,7 @@ npm run new -- "文章标题" 分类名
 然后在管理面板中创建，或编辑后执行迁移命令把数据同步到 KV：
 
 ```bash
-npm run seed && npm run kv:seed
+npm run seed && npm run kv:seed # 或 npm run kv:seed-remote同步到云端
 ```
 
 ### Frontmatter 字段
@@ -164,7 +177,7 @@ npm run build && npm run serve
 
 # 或直接用 wrangler 本地跑 Functions + KV（推荐）
 npx wrangler pages dev dist
-# 需在 wrangler.toml 配置好 KV id 与 [vars] 中的 ADMIN_PASSWORD / SESSION_SECRET
+# 可在 wrangler.toml 配置好 KV id 与 [vars] 中的 ADMIN_PASSWORD / SESSION_SECRET
 ```
 
 ## 目录结构
