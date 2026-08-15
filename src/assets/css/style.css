@@ -100,7 +100,7 @@ body {
   background: var(--primary);
   box-shadow: 0 0 10px var(--glow, rgba(63, 120, 255, 0.55));
   pointer-events: none;
-  z-index: 60;
+  z-index: 9999;
   opacity: 0;
   transition: opacity 0.25s, width 0.18s, height 0.18s, margin 0.18s;
   will-change: transform;
@@ -800,7 +800,6 @@ body.sidebar-collapsed .sidebar {
 }
 .search-select:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
 }
 .search-field-actions {
   display: flex;
@@ -1300,7 +1299,6 @@ body.sidebar-collapsed .sidebar {
 .series-nav-next { text-align: right; }
 .series-nav-disabled {
   opacity: 0.5;
-  cursor: not-allowed;
   text-align: center;
 }
 
