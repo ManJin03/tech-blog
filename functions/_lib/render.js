@@ -11,39 +11,8 @@ import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import hljs from 'highlight.js';
 
-// 站点配置（与构建时保持一致）
-export const SITE = {
-  title: 'ByteForge',
-  description: '一个关注系统编程、异构计算与工程实践的个人技术博客',
-  url: 'https://tech-manjin.pages.dev',
-  author: 'ManJin',
-  login: 'ManJin03',
-  avatar: 'https://github.com/ManJin03.png',
-  homepage: 'https://manjin.pages.dev/',
-  bio: '系统编程与异构计算爱好者，热衷于探索 C++ 底层机制、CUDA 并行编程与昇腾 Ascend 算子开发。这里是我记录技术学习与工程实践的地方，希望这些文字能对你有所帮助。',
-  lang: 'zh-CN',
-  nav: [
-    { label: '首页', href: '/' },
-    { label: '专栏', href: '/columns.html' },
-    { label: '归档', href: '/archive.html' },
-    { label: '标签', href: '/tags.html' },
-    { label: '搜索', href: '/search.html' },
-    { label: '关于', href: '/about.html' }
-  ],
-  social: [
-    { label: 'GitHub', href: 'https://github.com/' },
-    { label: 'RSS', href: '/feed.xml' }
-  ],
-  // 个人资料卡内的社交按钮（图标仿 ManJin 总站外部链接样式：右上箭头方框）
-  socialButtons: [
-    { name: 'GitHub', url: 'https://github.com/ManJin03', icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 4.7 18 5 18 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>' },
-    { name: '总站', url: 'https://manjin.pages.dev/', icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg>' }
-  ],
-  // 友情链接（个人资料卡底部）
-  friendLinks: [
-    { name: 'Young man の 小破站', url: 'https://homepage-afl.pages.dev/' }
-  ]
-};
+// 站点配置：所有可自定义的站点内容统一在项目根目录的 site.config.js 中修改
+import { SITE } from '../../site.config.js';
 
 // 配置 marked：代码高亮 + 标题编号（用于生成目录），与构建时保持一致
 const marked = new Marked(
@@ -289,9 +258,9 @@ export function renderLayout(opts) {
       <a href="/" class="site-title">${SITE.title}</a>
       <aside class="visit-badge" id="visit-badge" aria-label="本站访问统计">
         <span class="visit-badge-icon">👥</span>
-        <span class="visit-badge-label">本站访客</span>
+        <span class="visit-badge-label">${SITE.ui.visitorLabel}</span>
         <span class="visit-badge-value" id="vercount_value_site_uv">…</span>
-        <span class="visit-badge-unit">人</span>
+        <span class="visit-badge-unit">${SITE.ui.visitorUnit}</span>
       </aside>
       <nav class="site-nav">${navHtml}</nav>
       <button class="theme-toggle" id="theme-toggle" aria-label="切换主题" title="切换主题">
@@ -309,7 +278,7 @@ ${content}
   <footer class="site-footer">
     <div class="container footer-inner">
       <div class="social">${socialHtml}</div>
-      <p class="copyright">© ${new Date().getFullYear()} ${SITE.author} · 由自建生成器驱动 · 文章数据存储于 Cloudflare KV</p>
+      <p class="copyright">© ${new Date().getFullYear()} ${SITE.author} · ${SITE.ui.footerNote}</p>
     </div>
   </footer>
   <script src="/assets/js/main.js"></script>
@@ -336,7 +305,7 @@ export function renderHome(posts, series) {
 
   const seriesHtml = series.length ? `
     <section class="series-preview">
-      <h2 class="section-title"><a href="/columns.html" class="section-title-link">专栏</a></h2>
+      <h2 class="section-title"><a href="/columns.html" class="section-title-link">${SITE.ui.columnsTitle}</a></h2>
       <div class="series-grid">
         ${series.slice(0, 6).map(c => `
           <a href="/columns/${c.slug}.html" class="series-card">
@@ -362,7 +331,7 @@ export function renderHome(posts, series) {
     </section>
     ${seriesHtml}
     <section class="post-list">
-      <h2 class="section-title">最新文章</h2>
+      <h2 class="section-title">${SITE.ui.latestPostsTitle}</h2>
       ${list}
     </section>`;
 
@@ -513,7 +482,7 @@ export function renderColumnsList(series) {
   if (!series.length) {
     content = `
     <section class="columns-page">
-      <h1 class="section-title">专栏</h1>
+      <h1 class="section-title">${SITE.ui.columnsTitle}</h1>
       <p class="search-empty">暂无专栏，在文章 frontmatter 中添加 <code>series: 专栏名</code> 即可创建。</p>
     </section>`;
   } else {
@@ -546,7 +515,7 @@ export function renderColumnsList(series) {
     }).join('');
     content = `
     <section class="columns-page">
-      <h1 class="section-title">专栏</h1>
+      <h1 class="section-title">${SITE.ui.columnsTitle}</h1>
       <p class="columns-desc">按主题把多篇文章聚合成专栏，便于系统阅读。</p>
       <div class="series-grid series-grid-lg">
         ${cards}
@@ -749,7 +718,7 @@ export function renderRss(posts, opts = {}) {
     <description>${escapeXml(SITE.description)}</description>
     <language>${SITE.lang}</language>
     <lastBuildDate>${lastBuildDate.toUTCString()}</lastBuildDate>
-    <generator>ByteForge</generator>
+    <generator>${escapeXml(SITE.title)}</generator>
     <atom:link href="${feedUrl}" rel="self" type="application/rss+xml"/>
     <image>
       <url>${SITE.avatar}?size=144</url>
@@ -768,8 +737,8 @@ export function renderNotFound() {
   const content = `
     <section class="not-found">
       <h1>404</h1>
-      <p>页面未找到</p>
+      <p>${SITE.ui.notFoundText}</p>
       <a href="/" class="back-home">← 返回首页</a>
     </section>`;
-  return renderLayout({ title: '404', description: '页面未找到', content });
+  return renderLayout({ title: '404', description: SITE.ui.notFoundText, content });
 }
