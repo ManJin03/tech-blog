@@ -28,25 +28,30 @@ export async function onRequest(context) {
     if (!enabled) return json({ error: '评论功能未启用（未配置 GitHub OAuth）' }, 503);
     if (!data.user) return json({ error: '请先使用 GitHub 账号登录后再评论' }, 401);
 
-    const body = await request.json().catch(() => null);
-    if (!body) return json({ error: '无效的请求体' }, 400);
+    try {
+      const body = await request.json().catch(() => null);
+      if (!body) return json({ error: '无效的请求体' }, 400);
 
-    const slug = typeof body.slug === 'string' ? body.slug.trim() : '';
-    if (!slug || slug.length > 200) return json({ error: '缺少有效的 slug 参数' }, 400);
+      const slug = typeof body.slug === 'string' ? body.slug.trim() : '';
+      if (!slug || slug.length > 200) return json({ error: '缺少有效的 slug 参数' }, 400);
 
-    const article = await readArticle(env, slug);
-    if (!article) return json({ error: '文章不存在' }, 404);
+      const article = await readArticle(env, slug);
+      if (!article) return json({ error: '文章不存在' }, 404);
 
-    const { content, error } = normalizeContent(body.content);
-    if (error) return json({ error }, 400);
+      const { content, error } = normalizeContent(body.content);
+      if (error) return json({ error }, 400);
 
-    // 同一 GitHub 用户限流，防止刷屏
-    if (!(await checkRateLimit(env, data.user.id))) {
-      return json({ error: '评论太频繁，请稍后再试' }, 429);
+      // 同一 GitHub 用户限流，防止刷屏
+      if (!(await checkRateLimit(env, data.user.id))) {
+        return json({ error: '评论太频繁，请稍后再试' }, 429);
+      }
+
+      const comment = await addComment(env, slug, data.user, content);
+      return json({ ok: true, comment }, 201);
+    } catch (err) {
+      console.error('[comments] publish failed:', err);
+      return json({ error: '服务器内部错误，请稍后重试' }, 500);
     }
-
-    const comment = await addComment(env, slug, data.user, content);
-    return json({ ok: true, comment }, 201);
   }
 
   return json({ error: 'Method Not Allowed' }, 405);
