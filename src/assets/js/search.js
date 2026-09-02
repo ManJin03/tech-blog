@@ -161,14 +161,20 @@
 
         return (
           '<article class="post-card">' +
-            '<h2 class="post-card-title"><a href="' + p.url + '">' + highlight(p.title, f.q) + "</a></h2>" +
-            '<div class="post-meta">' +
-              '<time datetime="' + p.date + '">' + formatDate(p.date) + "</time>" +
-              '<span class="post-category">' + escapeHtml(p.category) + "</span>" +
-              seriesHtml +
+            '<div class="win-bar">' +
+              '<span class="win-dots" aria-hidden="true"><i class="wd wd-r"></i><i class="wd wd-y"></i><i class="wd wd-g"></i></span>' +
+              '<span class="win-bar-text">~/posts/' + escapeHtml(p.slug) + '.md</span>' +
             "</div>" +
-            '<p class="post-summary">' + highlight(p.summary, f.q) + "</p>" +
-            (tagsHtml ? '<div class="post-tags">' + tagsHtml + "</div>" : "") +
+            '<div class="win-body post-body">' +
+              '<h2 class="post-card-title"><a href="' + p.url + '">' + highlight(p.title, f.q) + "</a></h2>" +
+              '<div class="post-meta">' +
+                '<time datetime="' + p.date + '">' + formatDate(p.date) + "</time>" +
+                '<span class="post-category">' + escapeHtml(p.category) + "</span>" +
+                seriesHtml +
+              "</div>" +
+              '<p class="post-summary">' + highlight(p.summary, f.q) + "</p>" +
+              (tagsHtml ? '<div class="post-tags">' + tagsHtml + "</div>" : "") +
+            "</div>" +
           "</article>"
         );
       })

@@ -6,6 +6,13 @@
  *
  * 文章对象形状（与 KV 中存储的结构一致）：
  *   { slug, title, date, category, tags[], summary, series:{name,slug,order}|null, content, ... }
+ *
+ * 界面主题（自 v1.2 起）：
+ *   采用「Linux 系统窗口」风格的界面：
+ *   - 顶部站点头 = 窗口标题栏（红黄绿三灯 + 终端提示符风站点名）
+ *   - 首页中部最上方 = 进站介绍窗口（原左侧个人资料卡内容迁移至此）
+ *   - 文章卡片 = 迷你窗口（标题栏显示文章文件路径）
+ *   - 页脚 = 底部状态栏
  */
 import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
@@ -178,6 +185,26 @@ export function hydratePost(article) {
   };
 }
 
+/* ============================================================
+   通用 UI 片段（Linux 窗口风格）
+   ============================================================ */
+
+/** 窗口标题栏左侧的「红黄绿」三灯（纯装饰） */
+const WIN_DOTS = '<span class="win-dots" aria-hidden="true"><i class="wd wd-r"></i><i class="wd wd-y"></i><i class="wd wd-g"></i></span>';
+
+/** 生成一段窗口标题栏：三灯 + 标题文字（+ 可选右侧标签） */
+function winBar(text, tag = '') {
+  return `
+        <div class="win-bar">
+          ${WIN_DOTS}
+          <span class="win-bar-text">${text}</span>
+          ${tag ? `<span class="win-bar-tag">${tag}</span>` : ''}
+        </div>`;
+}
+
+/* ============================================================
+   页面骨架（所有页面共用）
+   ============================================================ */
 export function renderLayout(opts) {
   const { title, description, content, extraHead = '', extraBody = '' } = opts;
   const navHtml = SITE.nav.map(n =>
@@ -187,51 +214,9 @@ export function renderLayout(opts) {
     `<a href="${s.href}" class="social-link" target="_blank" rel="noopener">${s.label}</a>`
   ).join('\n');
 
-  // 左侧个人资料卡片（GitHub 风格）：含社交按钮、我的站点、友情链接、管理员入口
-  const socialButtons = SITE.socialButtons.map(btn => `
-        <a class="profile-social-btn" href="${btn.url}" target="_blank" rel="noopener" title="${btn.name}">
-          <span class="profile-social-icon">${btn.icon}</span>
-          <span>${btn.name}</span>
-        </a>`).join('');
-
-  const friendIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
-  const friendLinks = SITE.friendLinks.map(link => `
-          <a class="profile-friend-link" href="${link.url}" target="_blank" rel="noopener">
-            <span class="profile-link-icon">${friendIcon}</span>
-            <span>${link.name}</span>
-          </a>`).join('');
-
-  // 管理员登录入口：位于个人资料卡底部，交互由 /assets/js/admin.js 接管
+  // 管理员登录入口：位于页脚右侧（交互由 /assets/js/admin.js 接管）
   const adminEntry = `
-          <div class="profile-admin-entry">
-            <button type="button" class="profile-admin-btn" id="admin-entry" aria-haspopup="dialog">🔒 管理员登录</button>
-          </div>`;
-
-  const sidebarHtml = `
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-inner">
-        <div class="profile-card">
-          <div class="profile-banner"></div>
-          <div class="profile-avatar">
-            <img src="${SITE.avatar}" alt="${SITE.author}" loading="lazy" onerror="this.onerror=null;this.src='/assets/head.jpg'">
-          </div>
-          <div class="profile-identity">
-            <div class="profile-name">${SITE.author}</div>
-            <div class="profile-login">@${SITE.login}</div>
-          </div>
-          <p class="profile-bio">${SITE.bio}</p>
-          <div class="profile-social">
-            ${socialButtons}
-          </div>
-          <div class="profile-divider"></div>
-          <div class="profile-section">
-            <div class="profile-section-title">友情链接</div>
-            <div class="profile-friend-links">${friendLinks}</div>
-          </div>
-          ${adminEntry}
-        </div>
-      </div>
-    </aside>`;
+        <button type="button" class="admin-entry" id="admin-entry" aria-haspopup="dialog">🔒 管理员登录</button>`;
 
   return `<!DOCTYPE html>
 <html lang="${SITE.lang}" data-theme="light">
@@ -252,10 +237,8 @@ export function renderLayout(opts) {
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <button class="sidebar-toggle nav-toggle" id="sidebarToggle" aria-label="折叠/展开侧边栏" title="折叠/展开侧边栏" aria-expanded="true">
-        <span class="nav-toggle-bars" aria-hidden="true"><i></i><i></i><i></i></span>
-      </button>
-      <a href="/" class="site-title">${SITE.title}</a>
+      ${WIN_DOTS}
+      <a href="/" class="site-title">${SITE.title}<span class="site-caret" aria-hidden="true">_</span></a>
       <aside class="visit-badge" id="visit-badge" aria-label="本站访问统计">
         <span class="visit-badge-icon">👥</span>
         <span class="visit-badge-label">${SITE.ui.visitorLabel}</span>
@@ -270,14 +253,17 @@ export function renderLayout(opts) {
     </div>
   </header>
   <div class="container layout">
-    ${sidebarHtml}
     <main class="site-main">
 ${content}
     </main>
   </div>
   <footer class="site-footer">
     <div class="container footer-inner">
-      <div class="social">${socialHtml}</div>
+      <p class="footer-status"><span class="footer-status-led" aria-hidden="true"></span>${SITE.title}@${SITE.login}:<span class="footer-status-tilde">~</span>$</p>
+      <div class="footer-actions">
+        <div class="social">${socialHtml}</div>
+        ${adminEntry}
+      </div>
       <p class="copyright">© ${new Date().getFullYear()} ${SITE.author} · ${SITE.ui.footerNote}</p>
     </div>
   </footer>
@@ -288,21 +274,69 @@ ${content}
 </html>`;
 }
 
+/** 首页（含进站介绍窗口 + 专栏速览区 + 最新文章窗口列表） */
 export function renderHome(posts, series) {
+  // —— 进站介绍窗口（原左侧个人资料卡内容迁至此处，位于中部最上方）——
+  const socialButtons = SITE.socialButtons.map(btn => `
+        <a class="profile-social-btn" href="${btn.url}" target="_blank" rel="noopener" title="${btn.name}">
+          <span class="profile-social-icon">${btn.icon}</span>
+          <span>${btn.name}</span>
+        </a>`).join('');
+
+  const friendIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+  const friendLinks = SITE.friendLinks.map(link => `
+          <a class="profile-friend-link" href="${link.url}" target="_blank" rel="noopener">
+            <span class="profile-link-icon">${friendIcon}</span>
+            <span>${link.name}</span>
+          </a>`).join('');
+
+  const introHtml = `
+    <section class="intro-win">
+      ${winBar('~/README.md', 'welcome guest')}
+      <div class="win-body intro-body">
+        <div class="intro-grid">
+          <div class="intro-id">
+            <img class="intro-avatar" src="${SITE.avatar}" alt="${SITE.author}" loading="lazy" onerror="this.onerror=null;this.src='/assets/head.jpg'">
+            <div class="intro-id-text">
+              <h1 class="intro-name">${SITE.author}<span class="intro-login">@${SITE.login}</span></h1>
+              <p class="intro-bio">${SITE.bio}</p>
+            </div>
+          </div>
+          <div class="intro-slogan">
+            <h2 class="intro-site">${SITE.title}</h2>
+            <p class="intro-desc">${SITE.description}</p>
+            <div class="intro-social">
+              ${socialButtons}
+            </div>
+          </div>
+        </div>
+        ${friendLinks ? `
+        <div class="intro-links">
+          <span class="intro-links-label">友情链接</span>
+          <div class="intro-friend-links">${friendLinks}</div>
+        </div>` : ''}
+      </div>
+    </section>`;
+
+  // —— 最新文章：每篇为一个小窗口 ——
   const list = posts.slice(0, 10).map(p => `
     <article class="post-card">
-      <h2 class="post-card-title"><a href="/posts/${p.slug}.html">${p.title}</a></h2>
-      <div class="post-meta">
-        <time datetime="${p.date}">${formatDate(p.date)}</time>
-        <span class="post-category">${p.category}</span>
-        ${p.series ? `<a class="post-series" href="/columns/${p.series.slug}.html">📚 ${p.series.name}</a>` : ''}
-      </div>
-      <p class="post-summary">${p.summary}</p>
-      <div class="post-tags">
-        ${p.tags.map(t => `<a href="/tags.html#${slugify(t)}" class="tag">#${t}</a>`).join('')}
+      ${winBar(`~/posts/${p.slug}.md`)}
+      <div class="win-body post-body">
+        <h2 class="post-card-title"><a href="/posts/${p.slug}.html">${p.title}</a></h2>
+        <div class="post-meta">
+          <time datetime="${p.date}">${formatDate(p.date)}</time>
+          <span class="post-category">${p.category}</span>
+          ${p.series ? `<a class="post-series" href="/columns/${p.series.slug}.html">📚 ${p.series.name}</a>` : ''}
+        </div>
+        <p class="post-summary">${p.summary}</p>
+        <div class="post-tags">
+          ${p.tags.map(t => `<a href="/tags.html#${slugify(t)}" class="tag">#${t}</a>`).join('')}
+        </div>
       </div>
     </article>`).join('\n');
 
+  // —— 首页专栏速览区 ——
   const seriesHtml = series.length ? `
     <section class="series-preview">
       <h2 class="section-title"><a href="/columns.html" class="section-title-link">${SITE.ui.columnsTitle}</a></h2>
@@ -315,6 +349,7 @@ export function renderHome(posts, series) {
             </div>
             <p class="series-card-summary">${c.summary}</p>
             <div class="series-card-meta">
+              <span class="series-card-cmd">$</span>
               <time>${formatDate(c.startDate)}</time>
               <span>→</span>
               <time>${formatDate(c.endDate)}</time>
@@ -325,10 +360,7 @@ export function renderHome(posts, series) {
     </section>` : '';
 
   const content = `
-    <section class="blog-intro">
-      <h1 class="blog-intro-title">${SITE.title}</h1>
-      <p class="blog-intro-desc">${SITE.description}</p>
-    </section>
+    ${introHtml}
     ${seriesHtml}
     <section class="post-list">
       <h2 class="section-title">${SITE.ui.latestPostsTitle}</h2>
@@ -342,6 +374,7 @@ export function renderHome(posts, series) {
   });
 }
 
+/** 文章页（正文窗口 + 目录 + 专栏信息块） */
 export function renderPostPage(post) {
   const tocHtml = post.toc.length
     ? `<details class="toc" open><summary>目录</summary><ul>${
@@ -390,23 +423,26 @@ export function renderPostPage(post) {
 
   const content = `
     <article class="post">
-      <header class="post-header">
-        <h1 class="post-title">${post.title}</h1>
-        <div class="post-meta">
-          <time datetime="${post.date}">${formatDate(post.date)}</time>
-          <span class="post-category">${post.category}</span>
-          ${post.series ? `<a class="post-series" href="/columns/${post.series.slug}.html">📚 ${post.series.name}</a>` : ''}
-          <span class="post-reading">${post.readingMinutes || estimateReadingTime(post.content)} 分钟阅读</span>
+      ${winBar(`~/posts/${post.slug}.md`, `${post.readingMinutes || estimateReadingTime(post.content)} min read`)}
+      <div class="win-body">
+        <header class="post-header">
+          <h1 class="post-title">${post.title}</h1>
+          <div class="post-meta">
+            <time datetime="${post.date}">${formatDate(post.date)}</time>
+            <span class="post-category">${post.category}</span>
+            ${post.series ? `<a class="post-series" href="/columns/${post.series.slug}.html">📚 ${post.series.name}</a>` : ''}
+            <span class="post-reading">${post.readingMinutes || estimateReadingTime(post.content)} 分钟阅读</span>
+          </div>
+          ${downloadHtml}
+          <div class="post-tags">
+            ${post.tags.map(t => `<a href="/tags.html#${slugify(t)}" class="tag">#${t}</a>`).join('')}
+          </div>
+        </header>
+        ${seriesBoxHtml}
+        ${tocHtml}
+        <div class="post-content">
+          ${post.html}
         </div>
-        ${downloadHtml}
-        <div class="post-tags">
-          ${post.tags.map(t => `<a href="/tags.html#${slugify(t)}" class="tag">#${t}</a>`).join('')}
-        </div>
-      </header>
-      ${seriesBoxHtml}
-      ${tocHtml}
-      <div class="post-content">
-        ${post.html}
       </div>
     </article>
     <a href="/" class="back-home">← 返回首页</a>`;
@@ -418,6 +454,7 @@ export function renderPostPage(post) {
   });
 }
 
+/** 归档页 */
 export function renderArchive(posts) {
   const yearMap = new Map();
   for (const p of posts) {
@@ -445,6 +482,7 @@ export function renderArchive(posts) {
   return renderLayout({ title: '归档', description: '全部文章归档', content });
 }
 
+/** 标签页 */
 export function renderTags(posts) {
   const tagMap = new Map();
   for (const p of posts) {
@@ -531,8 +569,8 @@ export function renderColumnsList(series) {
 
 /** 单个专栏详情页 columns/<slug>.html */
 export function renderColumnPage(col) {
-  const listHtml = col.posts.map((p, i) => `
-    <li class="series-article-item ${p.seriesIndex === col.posts[0].seriesIndex && i === 0 ? '' : ''}">
+  const listHtml = col.posts.map(p => `
+    <li class="series-article-item">
       <div class="series-article-meta">
         <span class="series-idx-badge">第 ${p.seriesIndex} 篇</span>
         <time datetime="${p.date}">${formatDate(p.date)}</time>
@@ -550,6 +588,10 @@ export function renderColumnPage(col) {
     <section class="column-detail">
       <a href="/columns.html" class="back-home">← 返回专栏列表</a>
       <header class="column-header">
+        <div class="column-header-bar">
+          <span class="series-badge">📚 专栏</span>
+          <span class="column-meta-path">~/columns/${col.slug}</span>
+        </div>
         <h1 class="column-title">${col.name}</h1>
         <div class="column-meta">
           <span>共 <strong>${col.count}</strong> 篇</span>
@@ -606,54 +648,59 @@ export function renderSearchPage(posts, series) {
     <section class="search-page">
       <h1 class="section-title">搜索</h1>
 
-      <form class="search-form" id="search-form" autocomplete="off">
-        <div class="search-field search-field-keyword">
-          <label for="q">关键词</label>
-          <input type="search" id="q" name="q" placeholder="搜索标题、摘要、标签或专栏…" class="search-input">
-        </div>
+      <div class="search-win">
+        ${winBar('~/search.sh', 'search')}
+        <div class="win-body">
+          <form class="search-form" id="search-form" autocomplete="off">
+            <div class="search-field search-field-keyword">
+              <label for="q">关键词</label>
+              <input type="search" id="q" name="q" placeholder="搜索标题、摘要、标签或专栏…" class="search-input">
+            </div>
 
-        <div class="search-field">
-          <label for="column">专栏</label>
-          <select id="column" name="column" class="search-select">
-            <option value="">全部</option>
-            ${series.map(c => `<option value="${c.slug}">${c.name} (${c.count})</option>`).join('')}
-          </select>
-        </div>
+            <div class="search-field">
+              <label for="column">专栏</label>
+              <select id="column" name="column" class="search-select">
+                <option value="">全部</option>
+                ${series.map(c => `<option value="${c.slug}">${c.name} (${c.count})</option>`).join('')}
+              </select>
+            </div>
 
-        <div class="search-field search-field-date">
-          <label for="year">年份</label>
-          <select id="year" name="year" class="search-select">
-            <option value="">全部</option>
-            ${years.map(y => `<option value="${y}" data-months="${[...yearMonths.get(y)].sort((a, b) => b.localeCompare(a)).join(',')}">${y}</option>`).join('')}
-          </select>
-        </div>
+            <div class="search-field search-field-date">
+              <label for="year">年份</label>
+              <select id="year" name="year" class="search-select">
+                <option value="">全部</option>
+                ${years.map(y => `<option value="${y}" data-months="${[...yearMonths.get(y)].sort((a, b) => b.localeCompare(a)).join(',')}">${y}</option>`).join('')}
+              </select>
+            </div>
 
-        <div class="search-field search-field-date">
-          <label for="month">月份</label>
-          <select id="month" name="month" class="search-select" disabled>
-            <option value="">全部</option>
-          </select>
-        </div>
+            <div class="search-field search-field-date">
+              <label for="month">月份</label>
+              <select id="month" name="month" class="search-select" disabled>
+                <option value="">全部</option>
+              </select>
+            </div>
 
-        <div class="search-field search-field-actions">
-          <button type="submit" class="search-btn">搜索</button>
-          <button type="reset" class="search-btn search-btn-ghost" id="search-reset">重置</button>
-        </div>
-      </form>
+            <div class="search-field search-field-actions">
+              <button type="submit" class="search-btn">搜索</button>
+              <button type="reset" class="search-btn search-btn-ghost" id="search-reset">重置</button>
+            </div>
+          </form>
 
-      <fieldset class="search-tags" id="search-tags">
-        <legend>标签筛选（多选）</legend>
-        <div class="search-tags-list">
-          ${tags.map(t => `
-            <label class="search-tag">
-              <input type="checkbox" name="tag" value="${t}">
-              <span>#${t} <em>${tagMap.get(t)}</em></span>
-            </label>`).join('')}
-        </div>
-      </fieldset>
+          <fieldset class="search-tags" id="search-tags">
+            <legend>标签筛选（多选）</legend>
+            <div class="search-tags-list">
+              ${tags.map(t => `
+                <label class="search-tag">
+                  <input type="checkbox" name="tag" value="${t}">
+                  <span>#${t} <em>${tagMap.get(t)}</em></span>
+                </label>`).join('')}
+            </div>
+          </fieldset>
 
-      <div class="search-summary" id="search-summary" aria-live="polite"></div>
-      <div class="search-results" id="search-results"></div>
+          <div class="search-summary" id="search-summary" aria-live="polite"></div>
+          <div class="search-results" id="search-results"></div>
+        </div>
+      </div>
     </section>`;
 
   return renderLayout({

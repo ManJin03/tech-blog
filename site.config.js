@@ -81,7 +81,8 @@ export const SITE = {
    * name：链接文字；url：链接地址。可自由增删条目。
    */
   friendLinks: [
-    { name: 'Young man の 小破站', url: 'https://homepage-afl.pages.dev/' }
+    { name: 'Young man の 小破站', url: 'https://homepage-afl.pages.dev/' },
+    { name: 'Ember の 小破站', url: 'https://ember-space.pages.dev/' }
   ],
 
   /* ==================== 界面文案 ==================== */
