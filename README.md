@@ -17,6 +17,7 @@
 - **专栏（系列文章）**：通过 frontmatter 中的 `series` 字段把多篇文章聚合为专栏，自动生成专栏列表页与详情页，文章页带上下篇导航
 - **全文搜索**：关键词 + 专栏 + 日期 + 标签四维度组合筛选
 - **RSS 订阅**：自动生成 `feed.xml`
+- **文章评论**：GitHub OAuth 登录后即可评论；GitHub 登录与管理员登录**会话完全隔离、互不冲突**，可同时在线；作者可删除自己的评论，管理员可删除任意评论
 
 ## 架构
 
@@ -31,7 +32,7 @@
   ├── /columns*.html    专栏      │
   ├── /search.html/.json 搜索    │
   ├── /feed.xml         RSS      ┘
-  └── /api/*   登录 / 会话 / 文章增删改查 / 下载
+  └── /api/*   登录 / 会话 / 文章增删改查 / 下载 / GitHub 登录 / 评论
 ```
 
 | 目录 / 文件 | 说明 |
@@ -39,7 +40,9 @@
 | `functions/_lib/render.js` | 共享渲染模块（构建与 Functions 共用，纯函数无文件系统依赖） |
 | `functions/_lib/store.js` | KV 文章存储层（`article:index` 元数据索引 + `article:<slug>` 全文） |
 | `functions/_lib/auth.js` | 管理员会话认证（HMAC 签名 HttpOnly Cookie） |
-| `functions/api/*` | 登录、会话、文章 CRUD、下载端点 |
+| `functions/_lib/comment-auth.js` | 评论用户（GitHub OAuth）会话认证：Cookie `byteforge_github` + KV 会话 `comment-session:<id>`，与管理员会话完全隔离 |
+| `functions/_lib/comments.js` | KV 评论存储层（`comment:list:<slug>` + 限流标记） |
+| `functions/api/*` | 登录、会话、文章 CRUD、下载、GitHub 登录、评论端点 |
 | `functions/posts/[slug].html.js` 等 | 文章页 / 首页 / 归档 / 标签 / 专栏 / 搜索 / RSS 动态渲染 |
 | `build.js` | 本地构建脚本（复用 render.js，输出 `dist/`，仅用于本地预览） |
 
@@ -47,6 +50,9 @@
 
 - `article:index`：文章元数据列表（不含正文，按日期倒序）—— 首页 / 归档 / 标签 / 专栏 / 搜索 / RSS 共用
 - `article:<slug>`：单篇文章完整记录（含 Markdown 正文、frontmatter 字段）
+- `comment:list:<slug>`：某篇文章的评论数组（作者信息为 GitHub 发表时快照）
+- `comment:rate:<githubId>`：发表评论限流标记（TTL 20 秒）
+- `comment-session:<id>`：GitHub 评论用户会话（资料 + 30 天 TTL）
 
 ## 部署（首次）
 
@@ -82,7 +88,11 @@ id = "粘贴 namespace id"
 | 变量 | 说明 |
 | ---- | ---- |
 | `ADMIN_PASSWORD` | 管理员登录密码（必填） |
-| `SESSION_SECRET` | 会话签名密钥（可选，缺省回退用 ADMIN_PASSWORD），可用 `openssl rand -hex 32` 生成 |
+| `SESSION_SECRET` | 会话签名密钥（管理员与评论用户共用，可选，缺省回退用 ADMIN_PASSWORD），可用 `openssl rand -hex 32` 生成 |
+| `GITHUB_CLIENT_ID` | GitHub OAuth App Client ID（评论区 GitHub 登录） |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth App Client Secret（评论区 GitHub 登录） |
+
+> GitHub OAuth App 的 **Authorization callback URL** 填 `https://<域名>/api/auth/github/callback`（本地开发为 `http://localhost:8881/api/auth/github/callback`），Scope 仅需 `read:user`。未配置时评论区显示「评论功能尚未启用」提示，不影响站点其它功能。详细说明见 `wrangler.md`。
 
 > **数据一致性说明**：文章数据统一以云端 KV 为准，所有增删改操作都通过浏览器管理面板完成。项目**不再提供**从本地向云端 KV 推送/迁移的脚本，避免本地文件覆盖云端数据造成线上事故。本地 `src/posts/` 仅作为草稿模板的存放地（已 gitignore）。
 
@@ -92,12 +102,21 @@ id = "粘贴 namespace id"
 
 ## 管理后台
 
-- 任意页面左侧「个人资料卡」底部 → **🔒 管理员登录**，输入 `ADMIN_PASSWORD` 登录
+- 任意页面**页脚右侧**「🔒 管理员」入口，输入 `ADMIN_PASSWORD` 登录
 - 登录后同一入口变为 **🛠 管理文章**，打开管理面板可：
   - **新建文章**：填写标题、slug、日期、分类、标签、专栏、摘要、Markdown 正文
   - **编辑 / 删除 / 查看**：列表内对应按钮（删除需二次确认）
 - 文章页登录状态下，正文上方会额外出现「✏️ 编辑」快捷入口
 - 会话 Cookie（30 天）由服务端 HMAC 签名，密码校验使用常数时间比较
+
+## 评论区（GitHub 登录）
+
+- 任意文章页底部即评论区：点击 **「使用 GitHub 登录」** 授权后即可发表评论
+- GitHub 登录与管理员登录**会话完全独立**（不同 Cookie：`byteforge_github` vs `byteforge_session`），可同时在线、互不登出
+- 评论为纯文本（自动识别换行与 http(s) 链接），前端转义渲染，杜绝 XSS
+- 评论作者可删除自己的评论；管理员登录状态下可删除任意评论（用于净化讨论区）
+- 限流：同一 GitHub 用户 20 秒内只能发表一条；单条最长 2000 字；每篇文章最多保留 500 条
+- 需要先创建 GitHub OAuth App 并配置 `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`（见上文环境变量与 `wrangler.md`）
 
 ## 写作（本地模板 + 云端发布）
 
@@ -155,6 +174,7 @@ npm run build && npm run serve
 # 或直接用 wrangler 本地跑 Functions + KV（推荐）
 npx wrangler pages dev dist
 # 可在 wrangler.toml 配置好 KV id 与 [vars] 中的 ADMIN_PASSWORD / SESSION_SECRET
+# （配置模板见 wrangler.md）
 ```
 
 ## 目录结构
@@ -162,10 +182,11 @@ npx wrangler pages dev dist
 ```md
 personal-blog/
 ├── build.js                  # 本地构建（复用 render.js）
-├── wrangler.toml             # Pages / KV 绑定配置
+├── wrangler.md               # Pages / KV 绑定配置模板与说明
 ├── functions/                # Cloudflare Pages Functions
-│   ├── _lib/                 # 共享模块（render / store / auth / respond / articles）
-│   ├── api/                  # 登录、会话、文章 CRUD、下载
+│   ├── _lib/                 # 共享模块（render / store / auth / comment-auth / comments / respond / articles）
+│   ├── api/                  # 登录、会话、文章 CRUD、下载、GitHub 登录、评论
+│   │   └── auth/github/      # GitHub OAuth（GET 登录 / callback 回调 / DELETE 登出）
 │   ├── index.js              # 首页动态渲染
 │   ├── posts/[slug].html.js  # 文章页动态渲染
 │   ├── archive.html.js       # 归档
@@ -183,6 +204,7 @@ personal-blog/
 │       ├── js/main.js        # 客户端交互
 │       ├── js/admin.js       # 管理员界面（登录 / 文章管理）
 │       ├── js/search.js      # 搜索页筛选逻辑
+│       ├── js/comments.js    # 文章页评论区（GitHub 登录 / 评论交互）
 │       └── favicon.svg
 └── dist/                     # 构建输出（gitignore）
 ```

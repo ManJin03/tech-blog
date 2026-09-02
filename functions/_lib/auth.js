@@ -16,7 +16,7 @@ export const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 天
 
 const enc = new TextEncoder();
 
-async function hmacHex(data, secret) {
+export async function hmacHex(data, secret) {
   const key = await crypto.subtle.importKey(
     'raw',
     enc.encode(secret),
@@ -94,4 +94,4 @@ export function clearSessionCookie() {
   return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
 
-export { safeEqual };
+export { safeEqual, hmacHex, randomId };

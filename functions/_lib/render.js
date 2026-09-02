@@ -421,9 +421,21 @@ export function renderPostPage(post) {
           </a>
         </div>`;
 
+  // 评论窗口：登录 GitHub 账号后可评论（交互逻辑见 /assets/js/comments.js）
+  const slugEsc = escapeXml(post.slug);
+  const commentsWin = `
+    <section class="comments-win">
+      ${winBar(`~/comments/${slugEsc}.sh`)}
+      <div class="win-body comments-body">
+        <div id="comments-root" data-slug="${slugEsc}">
+          <p class="comments-loading">$ 正在加载评论…</p>
+        </div>
+      </div>
+    </section>`;
+
   const content = `
     <article class="post">
-      ${winBar(`~/posts/${post.slug}.md`, `${post.readingMinutes || estimateReadingTime(post.content)} min read`)}
+      ${winBar(`~/posts/${slugEsc}.md`, `${post.readingMinutes || estimateReadingTime(post.content)} min read`)}
       <div class="win-body">
         <header class="post-header">
           <h1 class="post-title">${post.title}</h1>
@@ -445,12 +457,14 @@ export function renderPostPage(post) {
         </div>
       </div>
     </article>
+    ${commentsWin}
     <a href="/" class="back-home">← 返回首页</a>`;
 
   return renderLayout({
     title: post.title,
     description: post.summary,
-    content
+    content,
+    extraBody: '<script src="/assets/js/comments.js"></script>'
   });
 }
 

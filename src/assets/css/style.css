@@ -1758,6 +1758,281 @@ img { max-width: 100%; height: auto; }
 .admin-status-error { color: #d73a49; }
 
 /* ============================================
+   评论区（文章页 · GitHub 登录后评论）
+   ============================================ */
+.comments-win {
+  margin-top: 30px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.comments-win .win-bar-text { font-size: 12px; }
+.comments-body { padding-top: 16px; padding-bottom: 20px; }
+
+.comments-loading {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 6px 0;
+}
+.comments-note {
+  background: var(--bg-soft);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+
+/* 顶部登录栏 / 用户条 */
+.comments-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--bg-soft);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+.comments-hint { font-size: 13px; color: var(--text-soft); }
+.comments-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.comments-user strong { color: var(--text); }
+.comments-user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+.comments-bar-actions { display: flex; align-items: center; gap: 10px; }
+.comments-link {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--primary);
+}
+
+/* GitHub 登录按钮 */
+.gh-login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #fff;
+  background: #24292f;
+  border: 1px solid #24292f;
+  border-radius: var(--radius-sm);
+  padding: 7px 16px;
+  transition: filter var(--transition), background var(--transition);
+}
+.gh-login-btn svg { display: inline-block; }
+.gh-login-btn:hover {
+  text-decoration: none;
+  filter: brightness(1.2);
+  background: #1b1f24;
+}
+[data-theme="dark"] .gh-login-btn {
+  background: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text);
+}
+[data-theme="dark"] .gh-login-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  filter: none;
+}
+
+/* 发表框 */
+.comments-composer { margin-bottom: 18px; }
+#comments-input {
+  width: 100%;
+  min-height: 84px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  resize: vertical;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+#comments-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.comments-composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+.comments-counter { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.comments-submit {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 7px 16px;
+  transition: all var(--transition);
+}
+.comments-submit:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.comments-submit[disabled] { opacity: 0.55; }
+.comments-status {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #d73a49;
+  margin-top: 6px;
+}
+
+/* 评论列表头 */
+.comments-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.comments-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+.comments-count { font-family: var(--font-mono); font-size: 12px; color: var(--primary); }
+.comments-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 22px 0 10px;
+}
+
+/* 评论条目 */
+.comments-list { margin: 0; padding: 0; }
+.comment-item {
+  display: flex;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.comment-item:last-child { border-bottom: none; }
+.comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  flex-shrink: 0;
+}
+.comment-main { flex: 1; min-width: 0; }
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.comment-author {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.comment-author:hover { color: var(--primary); text-decoration: none; }
+.comment-time {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.comment-del {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-soft);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 8px;
+  transition: all var(--transition);
+}
+.comment-del:hover { color: #fff; background: #d73a49; border-color: #d73a49; }
+.comment-del[disabled] { opacity: 0.55; }
+.comment-text {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.comment-text a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 退出按钮（评论登录态） */
+.comments-logout {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-soft);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 12px;
+  transition: all var(--transition);
+}
+.comments-logout:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  text-decoration: none;
+}
+.comments-logout[disabled] { opacity: 0.55; }
+
+/* 评论区「管理员」角标 */
+.comments-admin-tag {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 4px;
+}
+
+/* 无头像时的首字母占位 */
+.comment-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ============================================
    响应式
    ============================================ */
 @media (max-width: 960px) {
