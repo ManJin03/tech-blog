@@ -28,14 +28,14 @@ export async function hmacHex(data, secret) {
   return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function randomId() {
+export function randomId() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /** 常数时间比较，防止时序侧信道 */
-function safeEqual(a, b) {
+export function safeEqual(a, b) {
   const ba = new TextEncoder().encode(String(a));
   const bb = new TextEncoder().encode(String(b));
   if (ba.length !== bb.length) return false;
@@ -93,5 +93,3 @@ export function sessionCookie(token) {
 export function clearSessionCookie() {
   return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
-
-export { safeEqual, hmacHex, randomId };
