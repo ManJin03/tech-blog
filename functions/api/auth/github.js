@@ -38,7 +38,8 @@ export async function onRequest(context) {
       makeCookie(STATE_COOKIE, state, { maxAge: OAUTH_TTL }),
       makeCookie(RETURN_COOKIE, returnTo, { maxAge: OAUTH_TTL })
     ]);
-    return Response.redirect(oauthAuthorizeUrl(env, redirectUri, state), 302);
+    headers.set('Location', oauthAuthorizeUrl(env, redirectUri, state));
+    return new Response(null, { status: 302, headers });
   }
 
   if (method === 'DELETE') {
