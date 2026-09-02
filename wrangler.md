@@ -75,5 +75,5 @@ id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
 ### 4. KV 数据模型（评论相关）
 
 - `comment:list:<slug>`：某篇文章的评论数组（按时间正序；评论者信息为发表时快照）
-- `comment:rate:<githubId>`：发表评论限流标记（TTL 20 秒）
+- `comment:rate:<githubId>`：发表评论限流标记（TTL 60 秒；Cloudflare KV `expirationTtl` 下限为 60 秒）
 - `comment-session:<id>`：评论用户会话资料（30 天 TTL）

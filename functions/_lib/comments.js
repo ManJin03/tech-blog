@@ -3,7 +3,7 @@
  *
  * 数据模型：
  * - key `comment:list:<slug>`：某篇文章的评论数组（按时间正序，新评论追加尾部）
- * - key `comment:rate:<githubId>`：发表限流标记（TTL 20 秒）
+ * - key `comment:rate:<githubId>`：发表限流标记（TTL 60 秒）
  *
  * 存储对象（user 为发表时的 GitHub 身份快照）：
  *   {
@@ -20,7 +20,9 @@ import { randomId } from './auth.js';
 
 export const MAX_CONTENT_LENGTH = 2000;
 export const MAX_COMMENTS_PER_POST = 500;
-export const RATE_LIMIT_SECONDS = 20;
+// Cloudflare KV 的 expirationTtl 最小值为 60 秒（小于 60 的值会让 put 直接抛错），
+// 因此限流窗口只能取 ≥60 秒。
+export const RATE_LIMIT_SECONDS = 60;
 
 function listKey(slug) {
   return `comment:list:${slug}`;

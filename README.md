@@ -51,7 +51,7 @@
 - `article:index`：文章元数据列表（不含正文，按日期倒序）—— 首页 / 归档 / 标签 / 专栏 / 搜索 / RSS 共用
 - `article:<slug>`：单篇文章完整记录（含 Markdown 正文、frontmatter 字段）
 - `comment:list:<slug>`：某篇文章的评论数组（作者信息为 GitHub 发表时快照）
-- `comment:rate:<githubId>`：发表评论限流标记（TTL 20 秒）
+- `comment:rate:<githubId>`：发表评论限流标记（TTL 60 秒）
 - `comment-session:<id>`：GitHub 评论用户会话（资料 + 30 天 TTL）
 
 ## 部署（首次）
@@ -115,7 +115,7 @@ id = "粘贴 namespace id"
 - GitHub 登录与管理员登录**会话完全独立**（不同 Cookie：`byteforge_github` vs `byteforge_session`），可同时在线、互不登出
 - 评论为纯文本（自动识别换行与 http(s) 链接），前端转义渲染，杜绝 XSS
 - 评论作者可删除自己的评论；管理员登录状态下可删除任意评论（用于净化讨论区）
-- 限流：同一 GitHub 用户 20 秒内只能发表一条；单条最长 2000 字；每篇文章最多保留 500 条
+- 限流：同一 GitHub 用户 60 秒内只能发表一条；单条最长 2000 字；每篇文章最多保留 500 条
 - 需要先创建 GitHub OAuth App 并配置 `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`（见上文环境变量与 `wrangler.md`）
 
 ## 写作（本地模板 + 云端发布）
