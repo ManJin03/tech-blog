@@ -34,7 +34,7 @@ import matter from 'gray-matter';
 
 import {
   renderMarkdown,
-  buildToc,
+  extractTocFromHtml,
   toISODate,
   parseSeries,
   collectSeries,
@@ -85,8 +85,8 @@ function collectPosts() {
     const tags = Array.isArray(data.tags) ? data.tags : [];
     const category = data.category || '未分类';
     const summary = data.summary || content.replace(/[#`>*\-\[\]\(\)]/g, '').slice(0, 120) + '…';
-    const toc = buildToc(content);
     const html = renderMarkdown(content);
+    const toc = extractTocFromHtml(html);
     // 解析专栏字段：无 series 则为 null，不归属任何专栏
     const series = parseSeries(data.series);
     return {

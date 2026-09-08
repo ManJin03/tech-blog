@@ -38,25 +38,108 @@ marked.setOptions({
   headerPrefix: 'h-'
 });
 
+/* 代码块「复制」按钮（服务端注入，事件绑定在 assets/js/main.js） */
+const COPY_BTN_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+const CODE_COPY_BTN = `<button type="button" class="code-copy" aria-label="复制代码到剪贴板"><span class="code-copy-icon">${COPY_BTN_SVG}</span><span class="code-copy-text">复制</span></button>`;
+
+/**
+ * 渲染 markdown：
+ * - 由 marked v12+ 渲染正文（marked 12 已不再自动生成标题锚点 id）
+ * - 后处理①：给 h2~h4 按标题文本补齐 id，供「本文目录」锚点跳转与滚动高亮使用
+ * - 后处理②：把 <pre> 代码块包进 .code-block 容器并注入右上角「复制」按钮
+ */
 export function renderMarkdown(md) {
-  return marked.parse(md);
+  const html = marked.parse(md);
+  return addHeadingAnchors(wrapCodeBlocks(html));
 }
 
-/** 从 markdown 正文提取二级及以下标题作为 TOC */
-export function buildToc(md) {
-  const lines = String(md || '').split('\n');
-  const toc = [];
-  let inCode = false;
-  for (const line of lines) {
-    if (/^```/.test(line)) { inCode = !inCode; continue; }
-    if (inCode) continue;
-    const m = /^(#{2,4})\s+(.*)$/.exec(line);
-    if (m) {
-      const level = m[1].length;
-      const text = m[2].replace(/`/g, '').trim();
-      const id = 'h-' + text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
-      toc.push({ level, text, id });
+/** 解码内联 HTML 中的常见实体，得到可阅读的纯文本 */
+function decodeHtmlEntities(s) {
+  return String(s).replace(/&(#x?[0-9a-fA-F]+|[a-z]+);/gi, (all, ent) => {
+    const low = ent.toLowerCase();
+    const named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+    if (named[low]) return named[low];
+    if (low[0] === '#') {
+      const code = low[1] === 'x' ? parseInt(low.slice(2), 16) : parseInt(low.slice(1), 10);
+      if (!Number.isNaN(code) && code >= 0 && code <= 0x10ffff) return String.fromCodePoint(code);
     }
+    return all;
+  });
+}
+
+/** 标题文本 → 唯一锚点 id：相同文本的标题依次追加 -2、-3 后缀 */
+function nextHeadingId(text, used) {
+  const base = 'h-' + slugify(text);
+  const n = (used.get(base) || 0) + 1;
+  used.set(base, n);
+  return n === 1 ? base : `${base}-${n}`;
+}
+
+/** 给 HTML 中 h2~h4 补充锚点 id（依据标题文本生成，去重后与目录提取结果一一对应） */
+function addHeadingAnchors(html) {
+  const used = new Map();
+  const re = /<h([234])\b([^>]*)>/g;
+  let out = '';
+  let last = 0;
+  let m;
+  while ((m = re.exec(html))) {
+    const level = m[1];
+    const attrs = (m[2] || '').replace(/\s+$/, '');
+    const endTag = `</h${level}>`;
+    const close = html.indexOf(endTag, re.lastIndex);
+    if (close === -1) break; // 结构异常，跳过后续处理
+    const inner = html.slice(re.lastIndex, close);
+    const id = nextHeadingId(decodeHtmlEntities(inner.replace(/<[^>]*>/g, '')), used);
+    out += html.slice(last, m.index);
+    out += `<h${level}${attrs ? ` ${attrs}` : ''} id="${id}">${inner}${endTag}`;
+    last = close + endTag.length;
+    re.lastIndex = last; // 直接从闭合标签之后继续扫描
+  }
+  out += html.slice(last);
+  return out;
+}
+
+/** 给每个 <pre> 代码块包上 .code-block 容器，并在其右上角注入「复制」按钮 */
+function wrapCodeBlocks(html) {
+  const re = /<pre\b[^>]*>/g;
+  let out = '';
+  let last = 0;
+  let m;
+  while ((m = re.exec(html))) {
+    const close = html.indexOf('</pre>', m.index);
+    if (close === -1) break;
+    out += html.slice(last, m.index);
+    out += '<div class="code-block">' + CODE_COPY_BTN + html.slice(m.index, close + '</pre>'.length) + '</div>';
+    last = close + '</pre>'.length;
+    re.lastIndex = last;
+  }
+  out += html.slice(last);
+  return out;
+}
+
+/**
+ * 从渲染后的正文 HTML 提取二至四级标题作为 TOC。
+ * 直接扫描渲染结果（此时 addHeadingAnchors 已为标题补齐 id），
+ * 保证目录文本 / 锚点与正文中的标题完全一致，天然规避行内格式差异。
+ */
+export function extractTocFromHtml(html) {
+  const toc = [];
+  const used = new Map();
+  const re = /<h([234])\b([^>]*)>([\s\S]*?)<\/h\1>/g;
+  let m;
+  while ((m = re.exec(html))) {
+    const attrs = m[2] || '';
+    const idAttr = /\bid\s*=\s*"([^"]+)"/.exec(attrs);
+    const inner = m[3];
+    const text = decodeHtmlEntities(inner.replace(/<[^>]*>/g, ''))
+      .replace(/[ \t]+/g, ' ')
+      .trim();
+    if (!text) continue;
+    toc.push({
+      level: Number(m[1]),
+      text,
+      id: idAttr ? idAttr[1] : nextHeadingId(text, used)
+    });
   }
   return toc;
 }
@@ -170,8 +253,8 @@ export function backfillSeriesCount(series) {
 /** 把 KV 中的文章记录补齐 html / toc / summary 等渲染所需字段 */
 export function hydratePost(article) {
   const content = (article && article.content) || '';
-  const toc = buildToc(content);
   const html = renderMarkdown(content);
+  const toc = extractTocFromHtml(html);
   const summary = article && article.summary && String(article.summary).trim()
     ? article.summary
     : content.replace(/[#`>*\-\[\]\(\)]/g, '').slice(0, 120) + '…';
@@ -206,7 +289,7 @@ function winBar(text, tag = '') {
    页面骨架（所有页面共用）
    ============================================================ */
 export function renderLayout(opts) {
-  const { title, description, content, extraHead = '', extraBody = '' } = opts;
+  const { title, description, content, extraHead = '', extraBody = '', mainClass = '', containerMod = '' } = opts;
   const navHtml = SITE.nav.map(n =>
     `<a href="${n.href}" class="nav-link">${n.label}</a>`
   ).join('\n');
@@ -252,8 +335,8 @@ export function renderLayout(opts) {
       </button>
     </div>
   </header>
-  <div class="container layout">
-    <main class="site-main">
+  <div class="container layout${containerMod ? ` ${containerMod}` : ''}">
+    <main class="site-main${mainClass ? ` ${mainClass}` : ''}">
 ${content}
     </main>
   </div>
@@ -374,12 +457,32 @@ export function renderHome(posts, series) {
   });
 }
 
-/** 文章页（正文窗口 + 目录 + 专栏信息块） */
+/** 文章页（正文窗口 + 目录：窄屏内联折叠目录 / 宽屏右侧悬浮目录卡片） */
 export function renderPostPage(post) {
-  const tocHtml = post.toc.length
-    ? `<details class="toc" open><summary>目录</summary><ul>${
-        post.toc.map(t => `<li class="toc-level-${t.level}"><a href="#${t.id}">${t.text}</a></li>`).join('')
-      }</ul></details>`
+  const tocItems = Array.isArray(post.toc) ? post.toc : [];
+  const hasToc = tocItems.length > 0;
+
+  // 目录条目清单：内联目录与右侧悬浮卡片共用，锚点 id 与正文标题（服务端补齐）一致
+  const tocListHtml = hasToc
+    ? `<ul>${tocItems.map(t =>
+        `<li class="toc-level-${t.level}"><a href="#${escapeXml(t.id)}">${escapeXml(t.text)}</a></li>`
+      ).join('')}</ul>`
+    : '';
+
+  // 窄屏折叠目录（宽屏由 CSS 隐藏，避免与右侧悬浮卡片重复）
+  const tocInlineHtml = hasToc
+    ? `<details class="toc" open><summary>目录</summary>${tocListHtml}</details>`
+    : '';
+
+  // 宽屏右侧悬浮目录卡片（position: sticky，滚动时跟随阅读位置）
+  const tocCardHtml = hasToc
+    ? `<aside class="toc-card" aria-label="本文目录">
+        <div class="toc-card-bar">
+          <span class="toc-card-title">本文目录</span>
+          <span class="toc-card-count">${tocItems.length} 节</span>
+        </div>
+        <nav class="toc-card-nav">${tocListHtml}</nav>
+      </aside>`
     : '';
 
   // 专栏信息块：当文章属于某个专栏时，渲染专栏名、序号及上下篇导航
@@ -434,29 +537,32 @@ export function renderPostPage(post) {
     </section>`;
 
   const content = `
-    <article class="post">
-      ${winBar(`~/posts/${slugEsc}.md`, `${post.readingMinutes || estimateReadingTime(post.content)} min read`)}
-      <div class="win-body">
-        <header class="post-header">
-          <h1 class="post-title">${post.title}</h1>
-          <div class="post-meta">
-            <time datetime="${post.date}">${formatDate(post.date)}</time>
-            <span class="post-category">${post.category}</span>
-            ${post.series ? `<a class="post-series" href="/columns/${post.series.slug}.html">📚 ${post.series.name}</a>` : ''}
-            <span class="post-reading">${post.readingMinutes || estimateReadingTime(post.content)} 分钟阅读</span>
+    <div class="post-wrap${hasToc ? ' post-wrap--toc' : ''}">
+      <article class="post">
+        ${winBar(`~/posts/${slugEsc}.md`, `${post.readingMinutes || estimateReadingTime(post.content)} min read`)}
+        <div class="win-body">
+          <header class="post-header">
+            <h1 class="post-title">${post.title}</h1>
+            <div class="post-meta">
+              <time datetime="${post.date}">${formatDate(post.date)}</time>
+              <span class="post-category">${post.category}</span>
+              ${post.series ? `<a class="post-series" href="/columns/${post.series.slug}.html">📚 ${post.series.name}</a>` : ''}
+              <span class="post-reading">${post.readingMinutes || estimateReadingTime(post.content)} 分钟阅读</span>
+            </div>
+            ${downloadHtml}
+            <div class="post-tags">
+              ${post.tags.map(t => `<a href="/tags.html#${slugify(t)}" class="tag">#${t}</a>`).join('')}
+            </div>
+          </header>
+          ${seriesBoxHtml}
+          ${tocInlineHtml}
+          <div class="post-content">
+            ${post.html}
           </div>
-          ${downloadHtml}
-          <div class="post-tags">
-            ${post.tags.map(t => `<a href="/tags.html#${slugify(t)}" class="tag">#${t}</a>`).join('')}
-          </div>
-        </header>
-        ${seriesBoxHtml}
-        ${tocHtml}
-        <div class="post-content">
-          ${post.html}
         </div>
-      </div>
-    </article>
+      </article>
+      ${tocCardHtml}
+    </div>
     ${commentsWin}
     <a href="/" class="back-home">← 返回首页</a>`;
 
@@ -464,6 +570,9 @@ export function renderPostPage(post) {
     title: post.title,
     description: post.summary,
     content,
+    mainClass: hasToc ? 'site-main--toc' : '',
+    // 含目录时放宽外层容器宽度，正文列仍保持居中，目录卡片位于左侧留白区
+    containerMod: hasToc ? 'layout--wide' : '',
     extraBody: '<script src="/assets/js/comments.js"></script>'
   });
 }
