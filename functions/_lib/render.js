@@ -297,6 +297,14 @@ export function renderLayout(opts) {
     `<a href="${s.href}" class="social-link" target="_blank" rel="noopener">${s.label}</a>`
   ).join('\n');
 
+  // 站长平台验证标签：仅输出 site.config.js 中已填写的项（留空则跳过）
+  const V = SITE.verification || {};
+  const verificationTags = [
+    V.google ? `<meta name="google-site-verification" content="${V.google}">` : '',
+    V.bing ? `<meta name="msvalidate.01" content="${V.bing}">` : '',
+    V.baidu ? `<meta name="baidu-site-verification" content="${V.baidu}">` : ''
+  ].filter(Boolean).join('\n  ');
+
   // 管理员登录入口：位于页脚右侧（交互由 /assets/js/admin.js 接管）
   const adminEntry = `
         <button type="button" class="admin-entry" id="admin-entry" aria-haspopup="dialog">🔒 管理员登录</button>`;
@@ -305,7 +313,7 @@ export function renderLayout(opts) {
 <html lang="${SITE.lang}" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${verificationTags ? verificationTags + '\n  ' : ''}<meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} · ${SITE.title}</title>
   <meta name="description" content="${description || SITE.description}">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">

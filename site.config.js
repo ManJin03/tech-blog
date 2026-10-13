@@ -31,6 +31,16 @@ export const SITE = {
   /** 页面语言（影响 <html lang> 与 RSS <language>） */
   lang: 'zh-CN',
 
+  /* ==================== 站点验证（SEO） ====================
+   * 用于 Google / Bing / 百度 等站长平台的 HTML 标签验证方式，
+   * 填下方对应的 content 值即可，留空表示不输出该 meta 标签。
+   */
+  verification: {
+    google: 'hSwJKk1tfd-v3cEcOUd5TVs0vetwSoAVVVzoe6PeBSo',
+    bing: '',
+    baidu: ''
+  },
+
   /* ==================== 个人信息（左侧资料卡） ==================== */
 
   /** 昵称：资料卡姓名、页脚版权署名、RSS 作者 */
