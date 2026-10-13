@@ -902,6 +902,139 @@ ${items}
 </rss>`;
 }
 
+/** 静态页的收录策略：优先级与预期更新频率（键为站内路径） */
+const SITEMAP_PAGE_META = {
+  '/': { priority: '1.0', changefreq: 'daily' },
+  '/archive.html': { priority: '0.5', changefreq: 'weekly' },
+  '/tags.html': { priority: '0.5', changefreq: 'weekly' },
+  '/columns.html': { priority: '0.6', changefreq: 'weekly' },
+  '/search.html': { priority: '0.3', changefreq: 'monthly' }
+};
+/** 未在上表中登记的静态页（如 src/pages 生成的自定义页）使用此默认值 */
+const SITEMAP_DEFAULT_META = { priority: '0.4', changefreq: 'monthly' };
+/** 文章页 / 专栏页的收录策略 */
+const SITEMAP_POST_META = { priority: '0.8', changefreq: 'monthly' };
+const SITEMAP_COLUMN_META = { priority: '0.6', changefreq: 'weekly' };
+
+/** 取 YYYY-MM-DD 形式的更新时间；日期无效则返回 ''（sitemap 允许只精确到日期） */
+function sitemapLastmod(d) {
+  if (!d) return '';
+  const date = new Date(d);
+  return isNaN(date) ? '' : toISODate(date);
+}
+
+/** 规范化路径：补全前导 /、压缩重复斜杠、去掉末尾斜杠（根路径保留单个 /） */
+function normalizeSitePath(p) {
+  let path = String(p || '').trim();
+  if (!path || /^(https?:|mailto:|#|\/\*)/i.test(path)) return '';
+  if (!path.startsWith('/')) path = '/' + path;
+  path = path.replace(/\/{2,}/g, '/');
+  return path.length > 1 ? path.replace(/\/+$/, '') : path;
+}
+
+/** 是否可作为页面被搜索引擎收录：仅 / 与 *.html（排除 feed.xml、search.json 等数据接口） */
+function isIndexablePath(path) {
+  return path === '/' || /\.html$/.test(path);
+}
+
+/** 拼出绝对地址并对非 ASCII 字符做百分号转义（sitemap 协议要求 loc 为转义后的 URL） */
+function toSitemapLoc(base, path) {
+  try {
+    return new URL(path, base).href;
+  } catch {
+    return base + path;
+  }
+}
+
+/**
+ * sitemap.xml（Sitemap 0.9 协议）
+ *
+ * 收录范围（同一 URL 只出现一次，最终按路径排序输出，便于多次构建 diff）：
+ *   ① 静态页：取自 site.config.js 的 SITE.nav 站内链接 + extraPaths
+ *   ② 文章页：/posts/<slug>.html
+ *   ③ 专栏页：/columns/<slug>.html
+ *
+ * lastmod 取值：文章页用 updatedAt || date；专栏页取专栏内最新一篇；
+ * 静态页无自身时间，统一取全站最新更新时间作为兜底。
+ *
+ * @param {object}   opts
+ * @param {object[]} [opts.posts]      文章列表（可以是索引元数据，不必含正文）
+ * @param {object[]} [opts.series]     专栏列表（collectSeries 的输出）
+ * @param {string[]} [opts.extraPaths] 额外静态页路径，如 ['/about.html']
+ * @returns {string} sitemap XML
+ */
+export function renderSitemap({ posts = [], series = [], extraPaths = [] } = {}) {
+  const base = String(SITE.url || '').replace(/\/+$/, '');
+  const entries = new Map(); // 路径 → { lastmod, meta }
+
+  const put = (rawPath, lastmod, meta) => {
+    const path = normalizeSitePath(rawPath);
+    if (!path || !isIndexablePath(path) || entries.has(path)) return;
+    entries.set(path, { lastmod, meta });
+  };
+
+  // ① 静态页：导航中的站内链接（在 site.config.js 中增删 nav 即同步生效）
+  for (const item of Array.isArray(SITE.nav) ? SITE.nav : []) {
+    const path = normalizeSitePath(item && item.href);
+    if (!path) continue;
+    put(path, '', SITEMAP_PAGE_META[path] || SITEMAP_DEFAULT_META);
+  }
+  // ② 自定义页面（本地 src/pages/*.md 生成的 about.html 等）
+  for (const p of extraPaths) put(p, '', SITEMAP_DEFAULT_META);
+
+  // ③ 文章页：同时收集全站最新更新时间，用于静态页 lastmod 兜底
+  let siteLatest = '';
+  for (const p of posts) {
+    if (!p || !p.slug) continue;
+    const lastmod = sitemapLastmod(p.updatedAt || p.date);
+    if (lastmod > siteLatest) siteLatest = lastmod;
+    put(`/posts/${p.slug}.html`, lastmod, SITEMAP_POST_META);
+  }
+
+  // ④ 专栏页：lastmod 取专栏内最新一篇
+  for (const col of series) {
+    if (!col || !col.slug) continue;
+    let latest = '';
+    for (const p of col.posts || []) {
+      const lastmod = sitemapLastmod(p.updatedAt || p.date);
+      if (lastmod > latest) latest = lastmod;
+    }
+    put(`/columns/${col.slug}.html`, latest || siteLatest, SITEMAP_COLUMN_META);
+  }
+
+  const body = [...entries.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([path, info]) => {
+      const lines = [
+        '  <url>',
+        `    <loc>${escapeXml(toSitemapLoc(base, path))}</loc>`
+      ];
+      if (info.lastmod) lines.push(`    <lastmod>${info.lastmod}</lastmod>`);
+      lines.push(
+        `    <changefreq>${info.meta.changefreq}</changefreq>`,
+        `    <priority>${info.meta.priority}</priority>`,
+        '  </url>'
+      );
+      return lines.join('\n');
+    })
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${body}
+</urlset>`;
+}
+
+/** robots.txt（允许全站抓取并声明 sitemap 位置） */
+export function renderRobots() {
+  const base = String(SITE.url || '').replace(/\/+$/, '');
+  return `User-agent: *
+Allow: /
+
+Sitemap: ${base}/sitemap.xml
+`;
+}
+
 /** 404 页面 */
 export function renderNotFound() {
   const content = `

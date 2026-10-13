@@ -17,6 +17,7 @@
 - **专栏（系列文章）**：通过 frontmatter 中的 `series` 字段把多篇文章聚合为专栏，自动生成专栏列表页与详情页，文章页带上下篇导航
 - **全文搜索**：关键词 + 专栏 + 日期 + 标签四维度组合筛选
 - **RSS 订阅**：自动生成 `feed.xml`
+- **站点地图**：自动生成 `sitemap.xml` 与 `robots.txt`（收录静态页 / 文章页 / 专栏页，含 `lastmod`，线上随 KV 文章实时更新）
 - **文章评论**：GitHub OAuth 登录后即可评论；GitHub 登录与管理员登录**会话完全隔离、互不冲突**，可同时在线；作者可删除自己的评论，管理员可删除任意评论
 
 ## 架构
@@ -31,7 +32,8 @@
   ├── /tags.html        标签      │
   ├── /columns*.html    专栏      │
   ├── /search.html/.json 搜索    │
-  ├── /feed.xml         RSS      ┘
+  ├── /feed.xml         RSS      │
+  ├── /sitemap.xml      站点地图  ┘（静态 robots.txt 由构建输出）
   └── /api/*   登录 / 会话 / 文章增删改查 / 下载 / GitHub 登录 / 评论
 ```
 
@@ -193,7 +195,8 @@ personal-blog/
 │   ├── tags.html.js          # 标签
 │   ├── columns*.js           # 专栏
 │   ├── search*.js            # 搜索页 + search.json
-│   └── feed.xml.js           # RSS
+│   ├── feed.xml.js           # RSS
+│   └── sitemap.xml.js        # 站点地图（sitemap.xml）
 ├── scripts/
 │   └── new-post.js           # 新建本地文章模板（src/posts，已 gitignore）
 ├── src/

@@ -2,7 +2,7 @@
  * 本地构建脚本（静态站点生成器）
  *
  * - 读取 src/posts/*.md（带 frontmatter）生成文章页
- * - 生成首页、归档、标签页、专栏页、RSS、关于页
+ * - 生成首页、归档、标签页、专栏页、RSS、站点地图、关于页
  * - 拷贝静态资源到 dist/
  *
  * 说明：页面渲染逻辑已抽取到 functions/_lib/render.js（共享渲染模块），
@@ -48,6 +48,8 @@ import {
   renderSearchPage,
   renderSearchIndex,
   renderRss,
+  renderSitemap,
+  renderRobots,
   renderNotFound
 } from './functions/_lib/render.js';
 
@@ -97,6 +99,7 @@ function collectPosts() {
       category,
       summary,
       draft: !!data.draft,
+      updatedAt: data.updatedAt || null,
       html,
       toc,
       content,
@@ -179,6 +182,12 @@ function build() {
   writeFileSync(join(OUT, 'search.html'), renderSearchPage(posts, series));
   buildPages(pages);
   writeFileSync(join(OUT, 'feed.xml'), renderRss(posts));
+  writeFileSync(join(OUT, 'sitemap.xml'), renderSitemap({
+    posts,
+    series,
+    extraPaths: pages.map(p => `/${p.slug}.html`)
+  }));
+  writeFileSync(join(OUT, 'robots.txt'), renderRobots());
   writeFileSync(join(OUT, '404.html'), renderNotFound());
   copyAssets();
 
