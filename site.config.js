@@ -36,7 +36,7 @@ export const SITE = {
    * 填下方对应的 content 值即可，留空表示不输出该 meta 标签。
    */
   verification: {
-    google: 'hSwJKk1tfd-v3cEcOUd5TVs0vetwSoAVVVzoe6PeBSo',
+    google: 'LuBNmi5XmOw8OHyzEMeCFfuXdO4Jl0ItA9Vl1PLvWcE',
     bing: '',
     baidu: ''
   },
